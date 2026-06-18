@@ -1,0 +1,14 @@
+/home/bernard-mcgeever/Workspace/give-it-a-bash/job-seeker-copilot/job-service/src/main/java/com/jobseekercopilot/jobservice/model/dto/JobSearchRequest.java
+/home/bernard-mcgeever/Workspace/give-it-a-bash/job-seeker-copilot/job-service/src/main/java/com/jobseekercopilot/jobservice/service/JobSearchService.java
+/home/bernard-mcgeever/Workspace/give-it-a-bash/job-seeker-copilot/job-service/src/main/java/com/jobseekercopilot/jobservice/model/dto/Job.java
+/home/bernard-mcgeever/Workspace/give-it-a-bash/job-seeker-copilot/job-service/src/main/java/com/jobseekercopilot/jobservice/JobServiceApplication.java
+/home/bernard-mcgeever/Workspace/give-it-a-bash/job-seeker-copilot/job-service/src/main/java/com/jobseekercopilot/jobservice/client/ReedGatewayClient.java
+/home/bernard-mcgeever/Workspace/give-it-a-bash/job-seeker-copilot/job-service/src/main/java/com/jobseekercopilot/jobservice/model/dto/ErrorResponse.java
+/home/bernard-mcgeever/Workspace/give-it-a-bash/job-seeker-copilot/job-service/src/main/java/com/jobseekercopilot/jobservice/model/dto/JobSalary.java
+/home/bernard-mcgeever/Workspace/give-it-a-bash/job-seeker-copilot/job-service/src/main/java/com/jobseekercopilot/jobservice/config/RestTemplateConfig.java
+/home/bernard-mcgeever/Workspace/give-it-a-bash/job-seeker-copilot/job-service/src/main/java/com/jobseekercopilot/jobservice/model/dto/Aspirations.java
+/home/bernard-mcgeever/Workspace/give-it-a-bash/job-seeker-copilot/job-service/src/main/java/com/jobseekercopilot/jobservice/controller/JobSearchController.java
+/home/bernard-mcgeever/Workspace/give-it-a-bash/job-seeker-copilot/job-service/src/main/java/com/jobseekercopilot/jobservice/model/dto/SalaryExpectation.java
+/home/bernard-mcgeever/Workspace/give-it-a-bash/job-seeker-copilot/job-service/src/main/java/com/jobseekercopilot/jobservice/model/dto/ReedJobSearchRequest.java
+/home/bernard-mcgeever/Workspace/give-it-a-bash/job-seeker-copilot/job-service/src/main/java/com/jobseekercopilot/jobservice/model/dto/ReedJobSearchResponse.java
+/home/bernard-mcgeever/Workspace/give-it-a-bash/job-seeker-copilot/job-service/src/main/java/com/jobseekercopilot/jobservice/model/dto/WorkPreferences.java
