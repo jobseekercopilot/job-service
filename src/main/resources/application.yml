@@ -1,9 +1,9 @@
 server:
-  port: ${SERVER_PORT:8082}
+  port: ${SERVER_PORT:8086}
 
 services:
   reed-gateway:
-    url: ${REED_GATEWAY_URL:http://localhost:8083}
+    url: ${REED_GATEWAY_URL:http://reed-gateway:8087}
 
 job-search:
   default-distance: 25
