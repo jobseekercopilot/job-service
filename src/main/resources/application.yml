@@ -1,0 +1,13 @@
+server:
+  port: ${SERVER_PORT:8086}
+
+services:
+  reed-gateway:
+    url: ${REED_GATEWAY_URL:http://reed-gateway:8087}
+
+job-search:
+  default-distance: 25
+  default-page: 1
+  default-page-size: 20
+  max-page-size: 100
+  max-distance: 100
