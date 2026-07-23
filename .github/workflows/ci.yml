@@ -24,6 +24,10 @@ jobs:
         run: ./scripts/test-contract-policy.sh
       - name: Verify pinned contract input
         run: ./scripts/verify-contracts.sh
+      - name: Test producer API contract policy
+        run: ./scripts/test-api-contract-policy.sh
+      - name: Verify producer API contract
+        run: ./scripts/verify-api-contract.sh
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

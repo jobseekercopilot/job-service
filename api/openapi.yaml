@@ -151,13 +151,50 @@ components:
           culture:
           - culture
           - culture
+        homeLocation:
+          displayName: London
+          postcode: SW1A 1AA
+          latitude: 51.501
+          longitude: -0.142
+        selectedProviders:
+        - REED
+        - ADZUNA
       properties:
         aspirations:
           $ref: "#/components/schemas/Aspirations"
         workPreferences:
           $ref: "#/components/schemas/WorkPreferences"
+        homeLocation:
+          $ref: "#/components/schemas/HomeLocation"
+        selectedProviders:
+          description: Optional integration providers to search. Empty or omitted means all enabled providers.
+          items:
+            type: string
+          type: array
       required:
       - aspirations
+      type: object
+    HomeLocation:
+      description: User home location used for provider radius queries and distance sorting
+      properties:
+        displayName:
+          description: Human-readable location label
+          type: string
+        postcode:
+          description: User postcode when available
+          type: string
+        latitude:
+          description: WGS84 latitude
+          format: double
+          maximum: 90
+          minimum: -90
+          type: number
+        longitude:
+          description: WGS84 longitude
+          format: double
+          maximum: 180
+          minimum: -180
+          type: number
       type: object
     SalaryExpectation:
       example:
