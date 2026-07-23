@@ -243,8 +243,14 @@ components:
     Job:
       example:
         id: id
+        canonicalJobId: canonical-id
+        provider: REED
+        primarySource: REED
+        externalJobId: external-id
         title: title
+        jobTitle: title
         company: company
+        companyName: company
         location: location
         salary:
           min: 0
@@ -258,25 +264,108 @@ components:
       properties:
         id:
           type: string
+        canonicalJobId:
+          type: string
+        provider:
+          type: string
+        primarySource:
+          type: string
+        externalJobId:
+          type: string
         title:
+          type: string
+        jobTitle:
           type: string
         company:
           type: string
+        companyName:
+          type: string
         location:
           type: string
+        canonicalLocation:
+          $ref: "#/components/schemas/CanonicalLocation"
         salary:
           $ref: "#/components/schemas/JobSalary"
         employmentType:
           type: string
+        contractType:
+          type: string
+        category:
+          type: string
         postedDate:
           type: string
+        postedAt:
+          type: string
+        expiresAt:
+          type: string
+        distanceMiles:
+          format: double
+          type: number
+        remote:
+          type: boolean
         description:
           type: string
         url:
           type: string
+        sourceUrl:
+          type: string
+        sources:
+          items:
+            $ref: "#/components/schemas/JobSourceReference"
+          type: array
         matchScore:
           format: double
           type: number
+        applicationStatus:
+          type: string
+        applicationId:
+          format: uuid
+          type: string
+        cvDocumentId:
+          type: string
+        coverLetterDocumentId:
+          type: string
+        appliedAt:
+          format: date-time
+          type: string
+        applicationUpdatedAt:
+          format: date-time
+          type: string
+      type: object
+    CanonicalLocation:
+      properties:
+        displayName:
+          type: string
+        postcode:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        areaParts:
+          items:
+            type: string
+          type: array
+      type: object
+    JobSourceReference:
+      properties:
+        integrationProvider:
+          type: string
+        provider:
+          type: string
+        publisher:
+          type: string
+        externalJobId:
+          type: string
+        listingUrl:
+          type: string
+        applyUrl:
+          type: string
+        directApply:
+          type: boolean
+        providerPostedAt:
+          format: date-time
+          type: string
       type: object
     JobSalary:
       example:
@@ -292,6 +381,17 @@ components:
           type: integer
         currency:
           type: string
+        period:
+          type: string
+        normalisedAnnualMinimum:
+          format: double
+          type: number
+        normalisedAnnualMaximum:
+          format: double
+          type: number
+        normalisedAnnualMidpoint:
+          format: double
+          type: number
       type: object
     ReedJobSearchResponse:
       example:
@@ -330,6 +430,10 @@ components:
           items:
             $ref: "#/components/schemas/Job"
           type: array
+        resultsByTargetRole:
+          items:
+            $ref: "#/components/schemas/TargetRoleJobResults"
+          type: array
         totalResults:
           format: int32
           type: integer
@@ -339,4 +443,29 @@ components:
         pageSize:
           format: int32
           type: integer
+        providerResults:
+          items:
+            $ref: "#/components/schemas/ProviderResultStatus"
+          type: array
+      type: object
+    TargetRoleJobResults:
+      properties:
+        targetRole:
+          type: string
+        jobs:
+          items:
+            $ref: "#/components/schemas/Job"
+          type: array
+      type: object
+    ProviderResultStatus:
+      properties:
+        provider:
+          type: string
+        status:
+          type: string
+        rawResultCount:
+          format: int32
+          type: integer
+        errorMessage:
+          type: string
       type: object

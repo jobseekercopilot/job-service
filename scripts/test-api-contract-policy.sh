@@ -32,4 +32,28 @@ if "$script_dir/verify-api-contract.sh" "$missing_coordinate" >/dev/null 2>&1; t
     exit 1
 fi
 
+missing_response_field="$temporary_root/missing-provider-results.yaml"
+sed '/^        providerResults:$/,/^          type: array$/d' \
+    "$source_contract" > "$missing_response_field"
+if "$script_dir/verify-api-contract.sh" "$missing_response_field" >/dev/null 2>&1; then
+    echo "producer contract policy test: incomplete search response was accepted" >&2
+    exit 1
+fi
+
+missing_job_identity="$temporary_root/missing-canonical-job-id.yaml"
+awk '
+    $0 == "    Job:" { in_job = 1 }
+    in_job && $0 == "      properties:" { in_properties = 1 }
+    in_job && in_properties && $0 == "        canonicalJobId:" {
+        print "        canonicalJobIdentity:"
+        next
+    }
+    $0 == "    CanonicalLocation:" { in_job = 0 }
+    { print }
+' "$source_contract" > "$missing_job_identity"
+if "$script_dir/verify-api-contract.sh" "$missing_job_identity" >/dev/null 2>&1; then
+    echo "producer contract policy test: incomplete job identity was accepted" >&2
+    exit 1
+fi
+
 echo "producer API contract policy tests: passed"
