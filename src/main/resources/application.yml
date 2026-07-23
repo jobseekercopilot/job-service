@@ -1,13 +1,53 @@
+spring:
+  application:
+    name: job-service
+
 server:
   port: ${SERVER_PORT:8086}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
 
 services:
   reed-gateway:
     url: ${REED_GATEWAY_URL:http://reed-gateway:8087}
+  adzuna-gateway:
+    url: ${ADZUNA_GATEWAY_URL:http://adzuna-gateway:8101}
+  jsearch-gateway:
+    url: ${JSEARCH_GATEWAY_URL:http://jsearch-gateway:8102}
+  job-matching-service:
+    base-url: ${JOB_MATCHING_SERVICE_URL:http://localhost:8097}
+
+providers:
+  reed:
+    enabled: ${REED_ENABLED:true}
+  adzuna:
+    enabled: ${ADZUNA_ENABLED:true}
+    results-per-page: ${ADZUNA_RESULTS_PER_PAGE:50}
+  jsearch:
+    enabled: ${JSEARCH_ENABLED:true}
 
 job-search:
   default-distance: 25
   default-page: 1
-  default-page-size: 20
+  default-page-size: ${JOB_SEARCH_PROVIDER_PAGE_SIZE:100}
   max-page-size: 100
   max-distance: 100
+
+job:
+  search:
+    cache-ttl-minutes: ${JOB_SEARCH_CACHE_TTL_MINUTES:10}
+  deduplication:
+    enabled: true
+    posted-date-tolerance-days: 7
+    title-similarity-threshold: 0.90
+    description-similarity-threshold: 0.80
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{correlationId}] [%X{serviceName}] [%thread] %logger{36} - %msg%n"
+  level:
+    com.jobseekercopilot: ${APP_LOG_LEVEL:INFO}

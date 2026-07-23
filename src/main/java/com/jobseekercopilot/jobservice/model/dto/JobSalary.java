@@ -4,6 +4,10 @@ public class JobSalary {
     private Integer min;
     private Integer max;
     private String currency;
+    private String period;
+    private Double normalisedAnnualMinimum;
+    private Double normalisedAnnualMaximum;
+    private Double normalisedAnnualMidpoint;
 
     public JobSalary() {
     }
@@ -12,6 +16,13 @@ public class JobSalary {
         this.min = min;
         this.max = max;
         this.currency = currency;
+    }
+
+    public JobSalary(Integer min, Integer max, String currency, String period) {
+        this.min = min;
+        this.max = max;
+        this.currency = currency;
+        this.period = period;
     }
 
     public Integer getMin() {
@@ -36,5 +47,37 @@ public class JobSalary {
 
     public void setCurrency(String currency) {
         this.currency = currency;
+    }
+
+    public String getPeriod() {
+        return period;
+    }
+
+    public void setPeriod(String period) {
+        this.period = period;
+    }
+
+    public Double getNormalisedAnnualMinimum() {
+        return normalisedAnnualMinimum;
+    }
+
+    public void setNormalisedAnnualMinimum(Double normalisedAnnualMinimum) {
+        this.normalisedAnnualMinimum = normalisedAnnualMinimum;
+    }
+
+    public Double getNormalisedAnnualMaximum() {
+        return normalisedAnnualMaximum;
+    }
+
+    public void setNormalisedAnnualMaximum(Double normalisedAnnualMaximum) {
+        this.normalisedAnnualMaximum = normalisedAnnualMaximum;
+    }
+
+    public Double getNormalisedAnnualMidpoint() {
+        return normalisedAnnualMidpoint;
+    }
+
+    public void setNormalisedAnnualMidpoint(Double normalisedAnnualMidpoint) {
+        this.normalisedAnnualMidpoint = normalisedAnnualMidpoint;
     }
 }

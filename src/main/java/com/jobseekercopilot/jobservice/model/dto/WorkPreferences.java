@@ -7,6 +7,8 @@ public class WorkPreferences {
     private String remotePreference;
     private List<String> companySize;
     private List<String> culture;
+    private Double homeLatitude;
+    private Double homeLongitude;
 
     public WorkPreferences() {
     }
@@ -41,5 +43,21 @@ public class WorkPreferences {
 
     public void setCulture(List<String> culture) {
         this.culture = culture;
+    }
+
+    public Double getHomeLatitude() {
+        return homeLatitude;
+    }
+
+    public void setHomeLatitude(Double homeLatitude) {
+        this.homeLatitude = homeLatitude;
+    }
+
+    public Double getHomeLongitude() {
+        return homeLongitude;
+    }
+
+    public void setHomeLongitude(Double homeLongitude) {
+        this.homeLongitude = homeLongitude;
     }
 }
