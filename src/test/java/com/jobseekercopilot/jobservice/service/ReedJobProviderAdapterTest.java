@@ -21,6 +21,37 @@ import org.junit.jupiter.api.Test;
 class ReedJobProviderAdapterTest {
 
     @Test
+    void returnsEmptyJobsForHealthyZeroResultGatewayResponse() {
+        ReedJobsApi reedJobsApi = mock(ReedJobsApi.class);
+        ExternalSearchResponse response = new ExternalSearchResponse();
+        response.setJobs(List.of());
+        response.setTotalResults(0);
+        when(reedJobsApi.externalSearch(any(), eq("user-1")))
+                .thenReturn(response);
+        ReedJobProviderAdapter adapter = new ReedJobProviderAdapter(
+                reedJobsApi,
+                new PublisherNormalisationService(),
+                true,
+                1,
+                25);
+
+        List<Job> jobs = adapter.search(
+                "user-1",
+                new JobSearchCriteria(
+                        null,
+                        "Software Developer",
+                        "London",
+                        25,
+                        List.of("FULL_TIME"),
+                        null,
+                        null,
+                        "GBP",
+                        false));
+
+        assertThat(jobs).isEmpty();
+    }
+
+    @Test
     void mapsPinnedProviderFieldsIntoVersionedCanonicalEvidence() {
         ReedJobsApi reedJobsApi = mock(ReedJobsApi.class);
         ExternalSalary providerSalary = new ExternalSalary();

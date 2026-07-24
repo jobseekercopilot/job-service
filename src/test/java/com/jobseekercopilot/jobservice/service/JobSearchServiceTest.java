@@ -79,6 +79,32 @@ class JobSearchServiceTest {
     }
 
     @Test
+    void returnsCompleteSuccessfulResponseForHealthyZeroResultProvider() {
+        when(providerSearchCoordinator.search(
+                eq("user-1"), any(JobSearchCriteria.class), anySet(), anyLong()))
+                .thenReturn(fanOut(
+                        List.of(),
+                        List.of(status("REED", "SUCCESS", 0)),
+                        true,
+                        true,
+                        true));
+        when(matchingEnricher.enrich(eq("user-1"), any(), anyLong()))
+                .thenReturn(new OptionalJobMatchingEnricher.MatchingOutcome(
+                        List.of(), "COMPLETE", false));
+
+        var result = service.searchJobs("user-1", request("developer"));
+
+        assertThat(result.getJobs()).isEmpty();
+        assertThat(result.getTotalResults()).isZero();
+        assertThat(result.getSearchStatus()).isEqualTo("COMPLETE");
+        assertThat(result.getProviderResults())
+                .extracting("provider", "status", "rawResultCount")
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(
+                                "REED", "SUCCESS", 0));
+    }
+
+    @Test
     void matchingOutagePreservesProviderJobsAndMarksResponsePartial() {
         Job reedJob = job("reed-1", "Developer", "REED");
         when(providerSearchCoordinator.search(

@@ -3,7 +3,7 @@ info:
   description: Gateway API for Reed job search integration. Searches jobs via Reed
     external API.
   title: Jobseeker Copilot - Reed Gateway API
-  version: 1.0.0
+  version: 1.1.0
 servers:
 - description: Generated server url
   url: http://localhost:8087
@@ -42,12 +42,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/ExternalSearchResponse"
           description: Search completed successfully
-        "422":
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ExternalSearchResponse"
-          description: Search completed with no matching jobs
       summary: Search Reed for the job service
       tags:
       - Reed Jobs

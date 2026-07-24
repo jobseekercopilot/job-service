@@ -59,8 +59,8 @@ verify_source \
 verify_source \
     reed-gateway \
     jobseekercopilot/reed-gateway \
-    c1f90dcfe14360d8eb5b1665ab8009ed135c421e \
-    fa72da3d2f1115c6845db075a65715b24ba40df8619d9a363e21f6dc9e11e21f
+    85f3d5ad0117576b0baab08fa0430673a9ba7155 \
+    7bc588e36fa7ec1b264420f6dc0a278edb933f0ad403eac6473f961dec099568
 
 adzuna_contract="$contract_dir/adzuna-gateway.yaml"
 jsearch_contract="$contract_dir/jsearch-gateway.yaml"
@@ -82,5 +82,10 @@ grep -F '    JSearchSearchResponse:' "$jsearch_contract" >/dev/null
 
 grep -F '  /api/jobs/external-search:' "$reed_contract" >/dev/null
 grep -F '      operationId: externalSearch' "$reed_contract" >/dev/null
+grep -F '  version: 1.1.0' "$reed_contract" >/dev/null
+if grep -F '        "422":' "$reed_contract" >/dev/null; then
+    echo "contract policy: Reed healthy empty-result 422 response returned" >&2
+    exit 1
+fi
 
 echo "contract input policy: passed"
