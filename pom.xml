@@ -112,6 +112,62 @@
                             </configOptions>
                         </configuration>
                     </execution>
+                    <execution>
+                        <id>generate-adzuna-gateway-client</id>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <configuration>
+                            <inputSpec>${project.basedir}/src/main/openapi/adzuna-gateway.yaml</inputSpec>
+                            <output>${project.build.directory}/generated-sources/openapi/adzuna-gateway</output>
+                            <generatorName>java</generatorName>
+                            <library>resttemplate</library>
+                            <apiPackage>com.jobseekercopilot.generated.adzunagateway.api</apiPackage>
+                            <modelPackage>com.jobseekercopilot.generated.adzunagateway.model</modelPackage>
+                            <invokerPackage>com.jobseekercopilot.generated.adzunagateway.client</invokerPackage>
+                            <generateApiTests>false</generateApiTests>
+                            <generateModelTests>false</generateModelTests>
+                            <generateApiDocumentation>false</generateApiDocumentation>
+                            <generateModelDocumentation>false</generateModelDocumentation>
+                            <skipValidateSpec>false</skipValidateSpec>
+                            <configOptions>
+                                <annotationLibrary>none</annotationLibrary>
+                                <dateLibrary>java8</dateLibrary>
+                                <hideGenerationTimestamp>true</hideGenerationTimestamp>
+                                <openApiNullable>false</openApiNullable>
+                                <useJakartaEe>true</useJakartaEe>
+                                <useRuntimeException>true</useRuntimeException>
+                            </configOptions>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>generate-jsearch-gateway-client</id>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <configuration>
+                            <inputSpec>${project.basedir}/src/main/openapi/jsearch-gateway.yaml</inputSpec>
+                            <output>${project.build.directory}/generated-sources/openapi/jsearch-gateway</output>
+                            <generatorName>java</generatorName>
+                            <library>resttemplate</library>
+                            <apiPackage>com.jobseekercopilot.generated.jsearchgateway.api</apiPackage>
+                            <modelPackage>com.jobseekercopilot.generated.jsearchgateway.model</modelPackage>
+                            <invokerPackage>com.jobseekercopilot.generated.jsearchgateway.client</invokerPackage>
+                            <generateApiTests>false</generateApiTests>
+                            <generateModelTests>false</generateModelTests>
+                            <generateApiDocumentation>false</generateApiDocumentation>
+                            <generateModelDocumentation>false</generateModelDocumentation>
+                            <skipValidateSpec>false</skipValidateSpec>
+                            <configOptions>
+                                <annotationLibrary>none</annotationLibrary>
+                                <dateLibrary>java8</dateLibrary>
+                                <hideGenerationTimestamp>true</hideGenerationTimestamp>
+                                <openApiNullable>false</openApiNullable>
+                                <useJakartaEe>true</useJakartaEe>
+                                <useRuntimeException>true</useRuntimeException>
+                            </configOptions>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
 

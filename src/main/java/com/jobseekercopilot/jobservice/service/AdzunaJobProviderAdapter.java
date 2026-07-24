@@ -1,35 +1,32 @@
 package com.jobseekercopilot.jobservice.service;
 
-import com.jobseekercopilot.jobservice.model.dto.AdzunaJob;
-import com.jobseekercopilot.jobservice.model.dto.AdzunaSearchRequest;
-import com.jobseekercopilot.jobservice.model.dto.AdzunaSearchResponse;
+import com.jobseekercopilot.generated.adzunagateway.api.AdzunaJobsApi;
+import com.jobseekercopilot.generated.adzunagateway.model.AdzunaJob;
+import com.jobseekercopilot.generated.adzunagateway.model.AdzunaSearchRequest;
+import com.jobseekercopilot.generated.adzunagateway.model.AdzunaSearchResponse;
 import com.jobseekercopilot.jobservice.model.dto.CanonicalLocation;
 import com.jobseekercopilot.jobservice.model.dto.Job;
 import com.jobseekercopilot.jobservice.model.dto.JobSalary;
 import com.jobseekercopilot.jobservice.model.dto.JobSourceReference;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Component
 public class AdzunaJobProviderAdapter implements JobProviderAdapter {
-    private final RestTemplate restTemplate;
+    private final AdzunaJobsApi adzunaJobsApi;
     private final PublisherNormalisationService publisherNormalisationService;
-    private final String baseUrl;
     private final boolean enabled;
     private final int resultsPerPage;
 
-    public AdzunaJobProviderAdapter(RestTemplate restTemplate,
+    public AdzunaJobProviderAdapter(AdzunaJobsApi adzunaJobsApi,
                                     PublisherNormalisationService publisherNormalisationService,
-                                    @Value("${services.adzuna-gateway.url:http://adzuna-gateway:8101}") String baseUrl,
                                     @Value("${providers.adzuna.enabled:${ADZUNA_ENABLED:true}}") boolean enabled,
                                     @Value("${providers.adzuna.results-per-page:${ADZUNA_RESULTS_PER_PAGE:50}}") int resultsPerPage) {
-        this.restTemplate = restTemplate;
+        this.adzunaJobsApi = adzunaJobsApi;
         this.publisherNormalisationService = publisherNormalisationService;
-        this.baseUrl = baseUrl;
         this.enabled = enabled;
         this.resultsPerPage = resultsPerPage;
     }
@@ -46,10 +43,13 @@ public class AdzunaJobProviderAdapter implements JobProviderAdapter {
 
     @Override
     public List<Job> search(String userId, JobSearchCriteria criteria) {
-        AdzunaSearchResponse response = restTemplate.postForObject(
-                baseUrl + "/api/v1/adzuna/jobs/search",
-                new AdzunaSearchRequest(criteria.getTargetRole(), criteria.getLocation(), criteria.getDistanceMiles(), 1, resultsPerPage),
-                AdzunaSearchResponse.class);
+        AdzunaSearchRequest request = new AdzunaSearchRequest();
+        request.setTargetRole(criteria.getTargetRole());
+        request.setLocation(criteria.getLocation());
+        request.setDistanceMiles(criteria.getDistanceMiles());
+        request.setPage(1);
+        request.setResultsPerPage(resultsPerPage);
+        AdzunaSearchResponse response = adzunaJobsApi.search(request);
         return response == null || response.getJobs() == null
                 ? List.of()
                 : response.getJobs().stream().map(this::toJob).toList();

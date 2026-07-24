@@ -1,16 +1,16 @@
 package com.jobseekercopilot.jobservice.service;
 
+import com.jobseekercopilot.generated.jsearchgateway.api.JSearchJobsApi;
+import com.jobseekercopilot.generated.jsearchgateway.model.JSearchApplyOption;
+import com.jobseekercopilot.generated.jsearchgateway.model.JSearchJob;
+import com.jobseekercopilot.generated.jsearchgateway.model.JSearchSearchRequest;
+import com.jobseekercopilot.generated.jsearchgateway.model.JSearchSearchResponse;
 import com.jobseekercopilot.jobservice.model.dto.CanonicalLocation;
-import com.jobseekercopilot.jobservice.model.dto.JSearchApplyOption;
-import com.jobseekercopilot.jobservice.model.dto.JSearchJob;
-import com.jobseekercopilot.jobservice.model.dto.JSearchSearchRequest;
-import com.jobseekercopilot.jobservice.model.dto.JSearchSearchResponse;
 import com.jobseekercopilot.jobservice.model.dto.Job;
 import com.jobseekercopilot.jobservice.model.dto.JobSalary;
 import com.jobseekercopilot.jobservice.model.dto.JobSourceReference;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -21,18 +21,15 @@ import java.util.regex.Pattern;
 public class JSearchJobProviderAdapter implements JobProviderAdapter {
     private static final Pattern UK_POSTCODE = Pattern.compile("^[A-Z]{1,2}\\d[A-Z\\d]?\\s*\\d[A-Z]{2}$", Pattern.CASE_INSENSITIVE);
 
-    private final RestTemplate restTemplate;
+    private final JSearchJobsApi jSearchJobsApi;
     private final PublisherNormalisationService publisherNormalisationService;
-    private final String baseUrl;
     private final boolean enabled;
 
-    public JSearchJobProviderAdapter(RestTemplate restTemplate,
+    public JSearchJobProviderAdapter(JSearchJobsApi jSearchJobsApi,
                                      PublisherNormalisationService publisherNormalisationService,
-                                     @Value("${services.jsearch-gateway.url:http://jsearch-gateway:8102}") String baseUrl,
                                      @Value("${providers.jsearch.enabled:${JSEARCH_ENABLED:true}}") boolean enabled) {
-        this.restTemplate = restTemplate;
+        this.jSearchJobsApi = jSearchJobsApi;
         this.publisherNormalisationService = publisherNormalisationService;
-        this.baseUrl = baseUrl;
         this.enabled = enabled;
     }
 
@@ -48,10 +45,11 @@ public class JSearchJobProviderAdapter implements JobProviderAdapter {
 
     @Override
     public List<Job> search(String userId, JobSearchCriteria criteria) {
-        JSearchSearchResponse response = restTemplate.postForObject(
-                baseUrl + "/api/v1/jsearch/jobs/search",
-                new JSearchSearchRequest(criteria.getTargetRole(), jsearchLocation(criteria), criteria.isRemoteOnly(), null),
-                JSearchSearchResponse.class);
+        JSearchSearchRequest request = new JSearchSearchRequest();
+        request.setTargetRole(criteria.getTargetRole());
+        request.setLocation(jsearchLocation(criteria));
+        request.setRemoteOnly(criteria.isRemoteOnly());
+        JSearchSearchResponse response = jSearchJobsApi.search(request);
         return response == null || response.getJobs() == null
                 ? List.of()
                 : response.getJobs().stream().map(this::toJob).toList();
