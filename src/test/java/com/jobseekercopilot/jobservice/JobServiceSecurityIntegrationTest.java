@@ -59,7 +59,8 @@ class JobServiceSecurityIntegrationTest {
     void response() {
         when(jobSearchService.searchJobs(anyString(), any()))
                 .thenReturn(new ReedJobSearchResponse(
-                        List.of(), List.of(), 0, 1, 10, List.of()));
+                        List.of(), List.of(), 0, 1, 10, List.of(),
+                        "COMPLETE", "NOT_RUN"));
     }
 
     @Test
@@ -81,6 +82,24 @@ class JobServiceSecurityIntegrationTest {
 
         verify(jobSearchService).searchJobs(eq("active-owner"), any());
         verify(jobSearchService).searchJobs(eq("previous-owner"), any());
+    }
+
+    @Test
+    void allProviderFailureReturnsStableSafeServiceUnavailableResponse()
+            throws Exception {
+        when(jobSearchService.searchJobs(anyString(), any()))
+                .thenThrow(new JobSearchService.DownstreamServiceUnavailableException(
+                        "secret downstream detail"));
+
+        MvcResult result = mockMvc.perform(
+                        authenticatedSearch(JWKS.activeToken("alice")))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.error").value("SERVICE_UNAVAILABLE"))
+                .andExpect(jsonPath("$.message").value(
+                        "Job search service is temporarily unavailable"))
+                .andReturn();
+
+        assertFalse(result.getResponse().getContentAsString().contains("secret"));
     }
 
     @Test

@@ -40,6 +40,30 @@ if "$script_dir/verify-api-contract.sh" "$missing_response_field" >/dev/null 2>&
     exit 1
 fi
 
+missing_partial_status="$temporary_root/missing-partial-status.yaml"
+sed '/^        searchStatus:$/,/^          type: string$/d' \
+    "$source_contract" > "$missing_partial_status"
+if "$script_dir/verify-api-contract.sh" "$missing_partial_status" >/dev/null 2>&1; then
+    echo "producer contract policy test: missing partial status was accepted" >&2
+    exit 1
+fi
+
+missing_matching_status="$temporary_root/missing-matching-status.yaml"
+sed '/^        matchingStatus:$/,/^          type: string$/d' \
+    "$source_contract" > "$missing_matching_status"
+if "$script_dir/verify-api-contract.sh" "$missing_matching_status" >/dev/null 2>&1; then
+    echo "producer contract policy test: missing matching status was accepted" >&2
+    exit 1
+fi
+
+missing_failure_category="$temporary_root/missing-rate-limited-category.yaml"
+sed '/^          - RATE_LIMITED$/d' \
+    "$source_contract" > "$missing_failure_category"
+if "$script_dir/verify-api-contract.sh" "$missing_failure_category" >/dev/null 2>&1; then
+    echo "producer contract policy test: incomplete provider failure taxonomy was accepted" >&2
+    exit 1
+fi
+
 missing_job_identity="$temporary_root/missing-canonical-job-id.yaml"
 awk '
     $0 == "    Job:" { in_job = 1 }

@@ -6,6 +6,7 @@ import com.jobseekercopilot.jobservice.model.dto.Job;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientResponseException;
@@ -22,7 +23,7 @@ public class JobMatchingClient {
     private final String baseUrl;
 
     public JobMatchingClient(
-            RestTemplate restTemplate,
+            @Qualifier("jobMatchingRestTemplate") RestTemplate restTemplate,
             @Value("${services.job-matching-service.base-url:http://localhost:8097}") String baseUrl) {
         this.restTemplate = restTemplate;
         this.baseUrl = baseUrl;

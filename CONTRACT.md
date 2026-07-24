@@ -48,6 +48,23 @@ limits, and provider-specific compliance remain inside each gateway. Job
 Service maps generated gateway responses into its own canonical response and
 does not expose the generated provider models to Job Finder.
 
+The aggregate response makes degradation explicit:
+
+- `searchStatus=COMPLETE` means every attempted provider and optional matching
+  enrichment completed.
+- `searchStatus=PARTIAL` retains usable jobs when a provider or Job Matching
+  degrades.
+- `providerResults` reports stable `SUCCESS`, `DISABLED`, `TIMED_OUT`,
+  `SATURATED`, `RATE_LIMITED`, `CONFIGURATION_ERROR`, `REJECTED` or
+  `UNAVAILABLE` outcomes without raw downstream response detail.
+- `matchingStatus` independently reports the optional enrichment outcome.
+
+HTTP 503 is reserved for searches where no requested provider is enabled or
+every attempted provider fails. Job Matching failure alone does not discard
+provider jobs or turn a successful provider search into HTTP 503. Runtime
+budgets and operator guidance are documented in
+[`docs/PROVIDER_RESILIENCE.md`](docs/PROVIDER_RESILIENCE.md).
+
 Job Matching is not covered by these provider snapshots. Its authoritative
 inbound and Application Tracker consumer contracts are tracked by
 [MATCH-02](https://github.com/jobseekercopilot/job-matching-service/issues/2).

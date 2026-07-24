@@ -40,6 +40,13 @@ job-search:
 job:
   search:
     cache-ttl-minutes: ${JOB_SEARCH_CACHE_TTL_MINUTES:10}
+    resilience:
+      request-timeout-ms: ${JOB_SEARCH_REQUEST_TIMEOUT_MS:5000}
+      provider-timeout-ms: ${JOB_SEARCH_PROVIDER_TIMEOUT_MS:2500}
+      matching-timeout-ms: ${JOB_SEARCH_MATCHING_TIMEOUT_MS:1000}
+      connect-timeout-ms: ${JOB_SEARCH_CONNECT_TIMEOUT_MS:500}
+      executor-threads: ${JOB_SEARCH_EXECUTOR_THREADS:8}
+      executor-queue-capacity: ${JOB_SEARCH_EXECUTOR_QUEUE_CAPACITY:16}
   deduplication:
     enabled: true
     posted-date-tolerance-days: 7
