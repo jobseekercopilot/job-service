@@ -30,6 +30,11 @@ forward an unsigned subject header. See
 [`docs/SECURITY_BOUNDARY.md`](docs/SECURITY_BOUNDARY.md) for the claim,
 rotation and local-test contract.
 
+The Infrastructure
+[Job Search architecture ADR](https://github.com/jobseekercopilot/infrastructure/blob/develop/docs/adr/0001-job-search-architecture-and-ownership.md)
+is the approved ownership map for canonical jobs, provider orchestration,
+normalisation, deduplication, matching enrichment, and persistence.
+
 ## Local verification
 
 ```bash
