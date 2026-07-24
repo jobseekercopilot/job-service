@@ -3,7 +3,6 @@ package com.jobseekercopilot.jobservice.controller;
 import com.jobseekercopilot.jobservice.model.dto.ErrorResponse;
 import com.jobseekercopilot.jobservice.model.dto.JobSearchRequest;
 import com.jobseekercopilot.jobservice.model.dto.ReedJobSearchResponse;
-import com.jobseekercopilot.jobservice.service.JobMatchingClient;
 import com.jobseekercopilot.jobservice.service.JobSearchService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -57,13 +56,6 @@ public class JobSearchController {
     @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
     public ResponseEntity<ErrorResponse> handleServiceUnavailable(JobSearchService.DownstreamServiceUnavailableException ex) {
         ErrorResponse error = new ErrorResponse("SERVICE_UNAVAILABLE", "Job search service is temporarily unavailable");
-        return new ResponseEntity<>(error, HttpStatus.SERVICE_UNAVAILABLE);
-    }
-
-    @ExceptionHandler(JobMatchingClient.JobMatchingUnavailableException.class)
-    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
-    public ResponseEntity<ErrorResponse> handleJobMatchingUnavailable(JobMatchingClient.JobMatchingUnavailableException ex) {
-        ErrorResponse error = new ErrorResponse("SERVICE_UNAVAILABLE", "Job matching service is temporarily unavailable");
         return new ResponseEntity<>(error, HttpStatus.SERVICE_UNAVAILABLE);
     }
 

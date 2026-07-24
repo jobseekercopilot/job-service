@@ -4,11 +4,14 @@ import com.jobseekercopilot.jobservice.model.dto.Aspirations;
 import com.jobseekercopilot.jobservice.model.dto.CanonicalLocation;
 import com.jobseekercopilot.jobservice.model.dto.HomeLocation;
 import com.jobseekercopilot.jobservice.model.dto.Job;
+import com.jobseekercopilot.jobservice.model.dto.JobSalary;
 import com.jobseekercopilot.jobservice.model.dto.JobSearchRequest;
+import com.jobseekercopilot.jobservice.model.dto.JobSourceReference;
 import com.jobseekercopilot.jobservice.model.dto.ProviderResultStatus;
 import com.jobseekercopilot.jobservice.model.dto.ReedJobSearchResponse;
 import com.jobseekercopilot.jobservice.model.dto.SalaryExpectation;
 import com.jobseekercopilot.jobservice.model.dto.WorkPreferences;
+import com.jobseekercopilot.jobservice.config.JobSearchResilienceProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,6 +25,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,30 +35,35 @@ public class JobSearchService {
     private static final int DEFAULT_PAGE = 1;
     private static final int RESPONSE_PAGE_SIZE = 10;
 
-    private final List<JobProviderAdapter> providerAdapters;
+    private final ProviderSearchCoordinator providerSearchCoordinator;
     private final JobDeduplicationService deduplicationService;
     private final JobResultEnrichmentService jobResultEnrichmentService;
     private final DistanceCalculationService distanceCalculationService;
-    private final JobMatchingClient jobMatchingClient;
+    private final OptionalJobMatchingEnricher jobMatchingEnricher;
+    private final JobSearchResilienceProperties resilience;
     private final int cacheTtlMinutes;
     private final Map<String, CacheEntry> searchCache = new ConcurrentHashMap<>();
 
-    public JobSearchService(List<JobProviderAdapter> providerAdapters,
+    public JobSearchService(ProviderSearchCoordinator providerSearchCoordinator,
                             JobDeduplicationService deduplicationService,
                             JobResultEnrichmentService jobResultEnrichmentService,
                             DistanceCalculationService distanceCalculationService,
-                            JobMatchingClient jobMatchingClient,
+                            OptionalJobMatchingEnricher jobMatchingEnricher,
+                            JobSearchResilienceProperties resilience,
                             @Value("${job.search.cache-ttl-minutes:${JOB_SEARCH_CACHE_TTL_MINUTES:10}}") int cacheTtlMinutes) {
-        this.providerAdapters = providerAdapters;
+        this.providerSearchCoordinator = providerSearchCoordinator;
         this.deduplicationService = deduplicationService;
         this.jobResultEnrichmentService = jobResultEnrichmentService;
         this.distanceCalculationService = distanceCalculationService;
-        this.jobMatchingClient = jobMatchingClient;
+        this.jobMatchingEnricher = jobMatchingEnricher;
+        this.resilience = resilience;
         this.cacheTtlMinutes = cacheTtlMinutes;
     }
 
     public ReedJobSearchResponse searchJobs(String userId, JobSearchRequest request) {
         long searchStartedAt = System.nanoTime();
+        long requestDeadlineNanos = searchStartedAt
+                + TimeUnit.MILLISECONDS.toNanos(resilience.getRequestTimeoutMs());
         validateRequest(request);
 
         List<String> targetRoles = targetRoles(request);
@@ -65,21 +74,64 @@ public class JobSearchService {
         List<ReedJobSearchResponse.TargetRoleJobResults> resultsByTargetRole = new ArrayList<>();
         List<ProviderResultStatus> providerResults = new ArrayList<>();
         List<Job> allJobs = new ArrayList<>();
+        boolean anyProviderSuccess = false;
+        boolean anyProviderAttempted = false;
+        boolean partial = false;
+        String matchingStatus = "NOT_RUN";
 
         for (String targetRole : targetRoles) {
+            if (System.nanoTime() >= requestDeadlineNanos) {
+                anyProviderAttempted = true;
+                providerResults.add(new ProviderResultStatus(
+                        "REQUEST",
+                        "TIMED_OUT",
+                        0,
+                        "Job search deadline reached"));
+                partial = true;
+                break;
+            }
             JobSearchCriteria criteria = criteria(request, targetRole);
-            ProviderSearchResult providerSearchResult = cachedProviderSearch(userId, criteria, request);
+            ProviderSearchResult providerSearchResult = cachedProviderSearch(
+                    userId,
+                    criteria,
+                    request,
+                    requestDeadlineNanos);
             providerResults.addAll(providerSearchResult.providerResults());
+            anyProviderSuccess |= providerSearchResult.anySuccess();
+            anyProviderAttempted |= providerSearchResult.anyAttempted();
+            partial |= !providerSearchResult.complete();
+
+            if (!providerSearchResult.anySuccess()) {
+                resultsByTargetRole.add(
+                        new ReedJobSearchResponse.TargetRoleJobResults(
+                                targetRole,
+                                List.of()));
+                continue;
+            }
+
             applyDistance(request, providerSearchResult.jobs());
-            long matchingStartedAt = System.nanoTime();
-            List<Job> enrichedJobs = jobMatchingClient.enrichJobs(userId, providerSearchResult.jobs());
-            log.info("Job matching complete enrichedCount={} durationMs={}",
-                    enrichedJobs.size(),
-                    (System.nanoTime() - matchingStartedAt) / 1_000_000);
+            OptionalJobMatchingEnricher.MatchingOutcome matchingOutcome =
+                    jobMatchingEnricher.enrich(
+                            userId,
+                            providerSearchResult.jobs(),
+                            requestDeadlineNanos);
+            List<Job> enrichedJobs = matchingOutcome.jobs();
+            matchingStatus = mergeMatchingStatus(
+                    matchingStatus,
+                    matchingOutcome.status());
+            partial |= matchingOutcome.degraded();
             resultsByTargetRole.add(new ReedJobSearchResponse.TargetRoleJobResults(targetRole, enrichedJobs));
             allJobs.addAll(enrichedJobs);
         }
 
+        if (!anyProviderSuccess) {
+            String reason = anyProviderAttempted
+                    ? "All requested providers are unavailable"
+                    : "No requested provider is enabled";
+            throw new DownstreamServiceUnavailableException(reason);
+        }
+
+        String searchStatus = partial ? "PARTIAL" : "COMPLETE";
         log.info("Job search completed roles={} finalCount={} durationMs={}",
                 targetRoles.size(),
                 allJobs.size(),
@@ -90,59 +142,61 @@ public class JobSearchService {
                 allJobs.size(),
                 DEFAULT_PAGE,
                 RESPONSE_PAGE_SIZE,
-                providerResults);
+                providerResults,
+                searchStatus,
+                matchingStatus);
     }
 
-    private ProviderSearchResult cachedProviderSearch(String userId, JobSearchCriteria criteria, JobSearchRequest request) {
+    private ProviderSearchResult cachedProviderSearch(
+            String userId,
+            JobSearchCriteria criteria,
+            JobSearchRequest request,
+            long requestDeadlineNanos) {
         String cacheKey = cacheKey(criteria, request);
         CacheEntry cached = searchCache.get(cacheKey);
         if (cached != null && !cached.expired(cacheTtlMinutes)) {
             log.info("Job provider search cache hit jobs={}",
                     cached.result().jobs().size());
-            return cached.result();
+            return copyProviderSearchResult(cached.result());
         }
         log.info("Job provider search cache miss");
-        ProviderSearchResult fresh = searchProviders(userId, criteria, request);
-        searchCache.put(cacheKey, new CacheEntry(Instant.now(), fresh));
-        return fresh;
+        ProviderSearchResult fresh = searchProviders(
+                userId,
+                criteria,
+                request,
+                requestDeadlineNanos);
+        if (fresh.complete() && fresh.anySuccess()) {
+            searchCache.put(
+                    cacheKey,
+                    new CacheEntry(
+                            Instant.now(),
+                            copyProviderSearchResult(fresh)));
+        }
+        return copyProviderSearchResult(fresh);
     }
 
-    private ProviderSearchResult searchProviders(String userId, JobSearchCriteria criteria, JobSearchRequest request) {
+    private ProviderSearchResult searchProviders(
+            String userId,
+            JobSearchCriteria criteria,
+            JobSearchRequest request,
+            long requestDeadlineNanos) {
         long startedAt = System.nanoTime();
-        List<Job> rawJobs = new ArrayList<>();
-        List<ProviderResultStatus> providerResults = new ArrayList<>();
         Set<String> selectedProviders = selectedProviders(request);
         log.info("Provider search started providers={}",
                 selectedProviders.isEmpty() ? "ALL" : String.join(",", selectedProviders));
-
-        for (JobProviderAdapter adapter : providerAdapters) {
-            if (!selectedProviders.isEmpty() && !selectedProviders.contains(adapter.provider())) {
-                log.debug("Provider {} skipped by request selection", adapter.provider());
-                continue;
-            }
-            if (!adapter.isEnabled()) {
-                log.info("Provider {} disabled", adapter.provider());
-                providerResults.add(new ProviderResultStatus(adapter.provider(), "DISABLED", 0, null));
-                continue;
-            }
-            long providerStartedAt = System.nanoTime();
-            try {
-                List<Job> providerJobs = adapter.search(userId, criteria);
-                rawJobs.addAll(providerJobs);
-                log.info("Provider {} returned rawCount={} durationMs={}",
-                        adapter.provider(),
-                        providerJobs.size(),
-                        (System.nanoTime() - providerStartedAt) / 1_000_000);
-                providerResults.add(new ProviderResultStatus(adapter.provider(), "SUCCESS", providerJobs.size(), null));
-            } catch (Exception ex) {
-                log.warn("Provider {} failed durationMs={} error={}",
-                        adapter.provider(),
-                        (System.nanoTime() - providerStartedAt) / 1_000_000,
-                        ex.getClass().getSimpleName());
-                providerResults.add(new ProviderResultStatus(
-                        adapter.provider(), "UNAVAILABLE", 0, "Provider temporarily unavailable"));
-            }
+        ProviderSearchCoordinator.ProviderFanOutResult fanOut;
+        try {
+            fanOut = providerSearchCoordinator.search(
+                    userId,
+                    criteria,
+                    selectedProviders,
+                    requestDeadlineNanos);
+        } catch (ProviderSearchCoordinator.ProviderCoordinationException exception) {
+            throw new DownstreamServiceUnavailableException(
+                    "Provider coordination is unavailable",
+                    exception);
         }
+        List<Job> rawJobs = fanOut.jobs();
 
         long deduplicationStartedAt = System.nanoTime();
         List<Job> uniqueJobs = deduplicationService.deduplicate(rawJobs);
@@ -161,7 +215,12 @@ public class JobSearchService {
                 rawJobs.size(),
                 enrichedProviderJobs.size(),
                 (System.nanoTime() - startedAt) / 1_000_000);
-        return new ProviderSearchResult(enrichedProviderJobs, providerResults);
+        return new ProviderSearchResult(
+                enrichedProviderJobs,
+                fanOut.providerResults(),
+                fanOut.anyAttempted(),
+                fanOut.anySuccess(),
+                fanOut.complete());
     }
 
     private void applyDistance(JobSearchRequest request, List<Job> jobs) {
@@ -275,11 +334,138 @@ public class JobSearchService {
         parts.put("location", criteria.getLocation().toLowerCase(Locale.ROOT));
         parts.put("distance", criteria.getDistanceMiles());
         parts.put("remote", criteria.isRemoteOnly());
+        parts.put("employmentTypes", criteria.getEmploymentTypes().stream()
+                .filter(value -> value != null)
+                .map(value -> value.toUpperCase(Locale.ROOT))
+                .sorted()
+                .toList());
+        parts.put("salaryMin", criteria.getSalaryMin());
+        parts.put("salaryMax", criteria.getSalaryMax());
+        parts.put("currency", criteria.getCurrency());
         parts.put("providers", selectedProviders(request).stream().sorted().toList());
         return parts.toString();
     }
 
-    private record ProviderSearchResult(List<Job> jobs, List<ProviderResultStatus> providerResults) {
+    private String mergeMatchingStatus(String current, String next) {
+        if ("NOT_RUN".equals(next)) {
+            return current;
+        }
+        if ("COMPLETE".equals(current) || "NOT_RUN".equals(current)) {
+            return next;
+        }
+        if ("TIMED_OUT".equals(current) || "TIMED_OUT".equals(next)) {
+            return "TIMED_OUT";
+        }
+        if ("SATURATED".equals(current) || "SATURATED".equals(next)) {
+            return "SATURATED";
+        }
+        return current;
+    }
+
+    private ProviderSearchResult copyProviderSearchResult(
+            ProviderSearchResult source) {
+        return new ProviderSearchResult(
+                copyProviderJobs(source.jobs()),
+                source.providerResults().stream()
+                        .map(this::copyProviderStatus)
+                        .toList(),
+                source.anyAttempted(),
+                source.anySuccess(),
+                source.complete());
+    }
+
+    private ProviderResultStatus copyProviderStatus(ProviderResultStatus source) {
+        return new ProviderResultStatus(
+                source.getProvider(),
+                source.getStatus(),
+                source.getRawResultCount(),
+                source.getErrorMessage());
+    }
+
+    private List<Job> copyProviderJobs(List<Job> jobs) {
+        return jobs.stream().map(this::copyProviderJob).toList();
+    }
+
+    private Job copyProviderJob(Job source) {
+        Job target = new Job();
+        target.setId(source.getId());
+        target.setCanonicalJobId(source.getCanonicalJobId());
+        target.setProvider(source.getProvider());
+        target.setPrimarySource(source.getPrimarySource());
+        target.setExternalJobId(source.getExternalJobId());
+        target.setTitle(source.getTitle());
+        target.setJobTitle(source.getJobTitle());
+        target.setCompany(source.getCompany());
+        target.setCompanyName(source.getCompanyName());
+        target.setLocation(source.getLocation());
+        target.setCanonicalLocation(copyLocation(source.getCanonicalLocation()));
+        target.setSalary(copySalary(source.getSalary()));
+        target.setEmploymentType(source.getEmploymentType());
+        target.setContractType(source.getContractType());
+        target.setCategory(source.getCategory());
+        target.setPostedDate(source.getPostedDate());
+        target.setPostedAt(source.getPostedAt());
+        target.setExpiresAt(source.getExpiresAt());
+        target.setDistanceMiles(source.getDistanceMiles());
+        target.setRemote(source.getRemote());
+        target.setDescription(source.getDescription());
+        target.setUrl(source.getUrl());
+        target.setSourceUrl(source.getSourceUrl());
+        target.setSources(source.getSources() == null
+                ? List.of()
+                : source.getSources().stream().map(this::copySource).toList());
+        target.setMatchScore(source.getMatchScore());
+        return target;
+    }
+
+    private CanonicalLocation copyLocation(CanonicalLocation source) {
+        if (source == null) {
+            return null;
+        }
+        CanonicalLocation target = new CanonicalLocation();
+        target.setDisplayName(source.getDisplayName());
+        target.setPostcode(source.getPostcode());
+        target.setLatitude(source.getLatitude());
+        target.setLongitude(source.getLongitude());
+        target.setAreaParts(source.getAreaParts() == null
+                ? null
+                : List.copyOf(source.getAreaParts()));
+        return target;
+    }
+
+    private JobSalary copySalary(JobSalary source) {
+        if (source == null) {
+            return null;
+        }
+        JobSalary target = new JobSalary();
+        target.setMin(source.getMin());
+        target.setMax(source.getMax());
+        target.setCurrency(source.getCurrency());
+        target.setPeriod(source.getPeriod());
+        target.setNormalisedAnnualMinimum(source.getNormalisedAnnualMinimum());
+        target.setNormalisedAnnualMaximum(source.getNormalisedAnnualMaximum());
+        target.setNormalisedAnnualMidpoint(source.getNormalisedAnnualMidpoint());
+        return target;
+    }
+
+    private JobSourceReference copySource(JobSourceReference source) {
+        JobSourceReference target = new JobSourceReference();
+        target.setProvider(source.getProvider());
+        target.setPublisher(source.getPublisher());
+        target.setExternalJobId(source.getExternalJobId());
+        target.setListingUrl(source.getListingUrl());
+        target.setApplyUrl(source.getApplyUrl());
+        target.setDirectApply(source.getDirectApply());
+        target.setProviderPostedAt(source.getProviderPostedAt());
+        return target;
+    }
+
+    private record ProviderSearchResult(
+            List<Job> jobs,
+            List<ProviderResultStatus> providerResults,
+            boolean anyAttempted,
+            boolean anySuccess,
+            boolean complete) {
     }
 
     private record CacheEntry(Instant createdAt, ProviderSearchResult result) {

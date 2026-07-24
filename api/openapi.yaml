@@ -5,9 +5,9 @@ info:
   description: |
     Service for searching and retrieving job listings.
 
-    This service acts as a facade over external job sources (via reed-gateway).
+    This service aggregates external job sources through provider gateways.
     It transforms user profile data (aspirations, work preferences) into
-    search requests and returns job results.
+    bounded concurrent searches and returns canonical job results.
 
     This service does NOT:
     - Store jobs in a local database
@@ -16,7 +16,7 @@ info:
   license:
     name: Proprietary source-available
   title: Jobseeker Copilot - Job Service API
-  version: 1.0.0
+  version: 1.1.0
 servers:
 - description: Generated server url
   url: http://localhost:8086
@@ -48,7 +48,7 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-          description: Service Unavailable
+          description: No requested provider was enabled or every attempted provider failed
         "400":
           content:
             '*/*':
@@ -468,6 +468,30 @@ components:
           items:
             $ref: "#/components/schemas/ProviderResultStatus"
           type: array
+        searchStatus:
+          description: COMPLETE when every attempted provider and matching enrichment completed; PARTIAL when usable provider results were returned with a degraded dependency.
+          enum:
+          - COMPLETE
+          - PARTIAL
+          type: string
+        matchingStatus:
+          description: Outcome of optional Job Matching enrichment. Provider results remain usable when matching is unavailable.
+          enum:
+          - COMPLETE
+          - NOT_RUN
+          - UNAVAILABLE
+          - TIMED_OUT
+          - SATURATED
+          type: string
+      required:
+      - jobs
+      - resultsByTargetRole
+      - totalResults
+      - page
+      - pageSize
+      - providerResults
+      - searchStatus
+      - matchingStatus
       type: object
     TargetRoleJobResults:
       properties:
@@ -483,10 +507,23 @@ components:
         provider:
           type: string
         status:
+          enum:
+          - SUCCESS
+          - DISABLED
+          - UNAVAILABLE
+          - TIMED_OUT
+          - SATURATED
+          - RATE_LIMITED
+          - CONFIGURATION_ERROR
+          - REJECTED
           type: string
         rawResultCount:
           format: int32
           type: integer
         errorMessage:
           type: string
+      required:
+      - provider
+      - status
+      - rawResultCount
       type: object

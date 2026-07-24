@@ -7,9 +7,11 @@ provider-specific DTOs to consumers.
 
 Status: **beta hardening in progress; not beta-ready**. Provider clients now
 build from pinned source-owned contracts and the search API verifies a signed
-end-user access token. Provider calls remain sequential, cache semantics remain
-unsafe, and the out-of-scope Job Matching service is still a hard availability
-dependency. Saved-job persistence is not implemented. See
+end-user access token. Provider fan-out now runs concurrently within explicit
+request, provider, connection and capacity budgets; healthy provider jobs
+survive other provider failures and optional Job Matching degradation. Cached
+provider snapshots are isolated from user-specific application state.
+Saved-job persistence and other tracked beta work are not implemented. See
 [`docs/BETA_READINESS_AUDIT.md`](docs/BETA_READINESS_AUDIT.md).
 
 ## Trusted identity boundary
@@ -52,6 +54,8 @@ update, and rollback policy.
 
 Provider gateway URLs and request deadlines must be supplied as runtime
 configuration. Provider credentials do not belong in this service.
+See [`docs/PROVIDER_RESILIENCE.md`](docs/PROVIDER_RESILIENCE.md) for timeout
+defaults, partial-result semantics, failure categories and operator actions.
 
 `develop` is the integration/default branch for beta hardening. See
 `CONTRIBUTING.md`, `SECURITY.md`, and `LICENSE`.

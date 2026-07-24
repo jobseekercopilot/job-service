@@ -9,6 +9,8 @@ public class ReedJobSearchResponse {
     private Integer page;
     private Integer pageSize;
     private List<ProviderResultStatus> providerResults;
+    private String searchStatus;
+    private String matchingStatus;
 
     public ReedJobSearchResponse() {
     }
@@ -31,9 +33,13 @@ public class ReedJobSearchResponse {
 
     public ReedJobSearchResponse(List<Job> jobs, List<TargetRoleJobResults> resultsByTargetRole,
                                  Integer totalResults, Integer page, Integer pageSize,
-                                 List<ProviderResultStatus> providerResults) {
+                                 List<ProviderResultStatus> providerResults,
+                                 String searchStatus,
+                                 String matchingStatus) {
         this(jobs, resultsByTargetRole, totalResults, page, pageSize);
         this.providerResults = providerResults;
+        this.searchStatus = searchStatus;
+        this.matchingStatus = matchingStatus;
     }
 
     public List<Job> getJobs() {
@@ -82,6 +88,22 @@ public class ReedJobSearchResponse {
 
     public void setProviderResults(List<ProviderResultStatus> providerResults) {
         this.providerResults = providerResults;
+    }
+
+    public String getSearchStatus() {
+        return searchStatus;
+    }
+
+    public void setSearchStatus(String searchStatus) {
+        this.searchStatus = searchStatus;
+    }
+
+    public String getMatchingStatus() {
+        return matchingStatus;
+    }
+
+    public void setMatchingStatus(String matchingStatus) {
+        this.matchingStatus = matchingStatus;
     }
 
     public static class TargetRoleJobResults {
