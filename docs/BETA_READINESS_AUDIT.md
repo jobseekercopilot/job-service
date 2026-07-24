@@ -8,16 +8,19 @@ them, caches them in memory, and invokes Job Matching before returning.
 
 ## Blocking findings
 
-- **P0 reproducibility:** Reed, Adzuna, JSearch and Job Matching clients are
-  excluded `systemPath` JARs.
+- **Completed build control:** the Reed client is generated from a pinned,
+  checksum-verified source-owned contract. Adzuna, JSearch and Job Matching use
+  source-owned DTOs in the current repository.
 - **P0 availability boundary:** every search requires the out-of-scope Job
   Matching service; its failure turns provider results into HTTP 503. Matching
   must be optional/asynchronous or otherwise isolated without auditing that
   service in this workstream.
 - **P0 product ownership:** no database, repository, entity, saved-job API, or
   save/unsave persistence exists in Job Service.
-- **P0 identity:** the service trusts a non-blank `X-User-Id` rather than a
-  verifiable trusted service/subject context.
+- **Identity rollout in progress:** Job Service now independently verifies the
+  RS256 access token and binds search identity to `sub`. End-to-end closure
+  still requires Job Finder to consume the revised contract and forward the
+  original Bearer token in its own reviewed release.
 - **P1 latency:** provider calls are sequential and have no applied end-to-end
   deadline, cancellation, circuit breaker, bulkhead, rate limiter, or bounded
   concurrency.

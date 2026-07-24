@@ -20,6 +20,7 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
     public static final String HEADER_NAME = "X-Correlation-Id";
     public static final String MDC_KEY = "correlationId";
     public static final String SERVICE_MDC_KEY = "serviceName";
+    private static final int MAX_CORRELATION_ID_LENGTH = 128;
 
     private static final Logger log = LoggerFactory.getLogger(CorrelationIdFilter.class);
 
@@ -33,10 +34,7 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        String correlationId = request.getHeader(HEADER_NAME);
-        if (!StringUtils.hasText(correlationId)) {
-            correlationId = UUID.randomUUID().toString();
-        }
+        String correlationId = safeCorrelationId(request.getHeader(HEADER_NAME));
 
         long startedAt = System.nanoTime();
         MDC.put(MDC_KEY, correlationId);
@@ -57,5 +55,14 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
             MDC.remove(MDC_KEY);
             MDC.remove(SERVICE_MDC_KEY);
         }
+    }
+
+    public static String safeCorrelationId(String candidate) {
+        if (!StringUtils.hasText(candidate)
+                || candidate.length() > MAX_CORRELATION_ID_LENGTH
+                || !candidate.matches("[A-Za-z0-9._-]+")) {
+            return UUID.randomUUID().toString();
+        }
+        return candidate;
     }
 }
