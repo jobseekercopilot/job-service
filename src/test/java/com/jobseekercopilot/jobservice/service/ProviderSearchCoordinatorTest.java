@@ -85,6 +85,30 @@ class ProviderSearchCoordinatorTest {
     }
 
     @Test
+    void treatsHealthyEmptyProviderAsSuccessfulCompleteSearch() {
+        executor = executor(1, 1);
+        JobProviderAdapter reed = adapter("REED", List::of);
+        ProviderSearchCoordinator coordinator = coordinator(
+                List.of(reed), 500, 300);
+
+        var result = coordinator.search(
+                "user-1", criteria(), Set.of(), deadlineAfter(500));
+
+        assertThat(result.jobs()).isEmpty();
+        assertThat(result.providerResults())
+                .singleElement()
+                .satisfies(providerResult -> {
+                    assertThat(providerResult.getProvider()).isEqualTo("REED");
+                    assertThat(providerResult.getStatus()).isEqualTo("SUCCESS");
+                    assertThat(providerResult.getRawResultCount()).isZero();
+                    assertThat(providerResult.getErrorMessage()).isNull();
+                });
+        assertThat(result.anyAttempted()).isTrue();
+        assertThat(result.anySuccess()).isTrue();
+        assertThat(result.complete()).isTrue();
+    }
+
+    @Test
     void cancelsSlowProviderWithoutDiscardingHealthyResults() throws Exception {
         executor = executor(2, 2);
         CountDownLatch interrupted = new CountDownLatch(1);
