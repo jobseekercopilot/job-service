@@ -46,8 +46,18 @@ job:
     title-similarity-threshold: 0.90
     description-similarity-threshold: 0.80
 
+job-service:
+  security:
+    jwk-set-uri: ${AUTH_JWKS_URI:http://authentication-service:8084/.well-known/jwks.json}
+    issuer: ${JOB_SERVICE_JWT_ISSUER:job-seeker-copilot-authentication}
+    audience: ${JOB_SERVICE_JWT_AUDIENCE:job-seeker-copilot-services}
+
 logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{correlationId}] [%X{serviceName}] [%thread] %logger{36} - %msg%n"
   level:
     com.jobseekercopilot: ${APP_LOG_LEVEL:INFO}
+    # Framework DEBUG/TRACE output can render request bodies, downstream URLs
+    # or authentication parser detail. Keep those namespaces non-sensitive.
+    org.springframework.web: INFO
+    org.springframework.security: INFO

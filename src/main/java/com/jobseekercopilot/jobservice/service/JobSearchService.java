@@ -59,11 +59,9 @@ public class JobSearchService {
 
         List<String> targetRoles = targetRoles(request);
         Set<String> selectedProviders = selectedProviders(request);
-        log.info("Job search started userId={} roles={} providers={} location={}",
-                userId,
+        log.info("Job search started roles={} providers={}",
                 targetRoles.size(),
-                selectedProviders.isEmpty() ? "ALL" : String.join(",", selectedProviders),
-                request.getAspirations().getLocations().get(0));
+                selectedProviders.isEmpty() ? "ALL" : String.join(",", selectedProviders));
         List<ReedJobSearchResponse.TargetRoleJobResults> resultsByTargetRole = new ArrayList<>();
         List<ProviderResultStatus> providerResults = new ArrayList<>();
         List<Job> allJobs = new ArrayList<>();
@@ -75,16 +73,14 @@ public class JobSearchService {
             applyDistance(request, providerSearchResult.jobs());
             long matchingStartedAt = System.nanoTime();
             List<Job> enrichedJobs = jobMatchingClient.enrichJobs(userId, providerSearchResult.jobs());
-            log.info("Job matching complete targetRole={} enrichedCount={} durationMs={}",
-                    targetRole,
+            log.info("Job matching complete enrichedCount={} durationMs={}",
                     enrichedJobs.size(),
                     (System.nanoTime() - matchingStartedAt) / 1_000_000);
             resultsByTargetRole.add(new ReedJobSearchResponse.TargetRoleJobResults(targetRole, enrichedJobs));
             allJobs.addAll(enrichedJobs);
         }
 
-        log.info("Job search completed userId={} roles={} finalCount={} durationMs={}",
-                userId,
+        log.info("Job search completed roles={} finalCount={} durationMs={}",
                 targetRoles.size(),
                 allJobs.size(),
                 (System.nanoTime() - searchStartedAt) / 1_000_000);
@@ -101,15 +97,11 @@ public class JobSearchService {
         String cacheKey = cacheKey(criteria, request);
         CacheEntry cached = searchCache.get(cacheKey);
         if (cached != null && !cached.expired(cacheTtlMinutes)) {
-            log.info("Job provider search cache hit targetRole={} location={} jobs={}",
-                    criteria.getTargetRole(),
-                    criteria.getLocation(),
+            log.info("Job provider search cache hit jobs={}",
                     cached.result().jobs().size());
             return cached.result();
         }
-        log.info("Job provider search cache miss targetRole={} location={}",
-                criteria.getTargetRole(),
-                criteria.getLocation());
+        log.info("Job provider search cache miss");
         ProviderSearchResult fresh = searchProviders(userId, criteria, request);
         searchCache.put(cacheKey, new CacheEntry(Instant.now(), fresh));
         return fresh;
@@ -120,11 +112,8 @@ public class JobSearchService {
         List<Job> rawJobs = new ArrayList<>();
         List<ProviderResultStatus> providerResults = new ArrayList<>();
         Set<String> selectedProviders = selectedProviders(request);
-        log.info("Provider search started userId={} targetRole={} providers={} location={}",
-                userId,
-                criteria.getTargetRole(),
-                selectedProviders.isEmpty() ? "ALL" : String.join(",", selectedProviders),
-                criteria.getLocation());
+        log.info("Provider search started providers={}",
+                selectedProviders.isEmpty() ? "ALL" : String.join(",", selectedProviders));
 
         for (JobProviderAdapter adapter : providerAdapters) {
             if (!selectedProviders.isEmpty() && !selectedProviders.contains(adapter.provider())) {
@@ -149,8 +138,7 @@ public class JobSearchService {
                 log.warn("Provider {} failed durationMs={} error={}",
                         adapter.provider(),
                         (System.nanoTime() - providerStartedAt) / 1_000_000,
-                        ex.getClass().getSimpleName(),
-                        ex);
+                        ex.getClass().getSimpleName());
                 providerResults.add(new ProviderResultStatus(
                         adapter.provider(), "UNAVAILABLE", 0, "Provider temporarily unavailable"));
             }
@@ -159,20 +147,17 @@ public class JobSearchService {
         long deduplicationStartedAt = System.nanoTime();
         List<Job> uniqueJobs = deduplicationService.deduplicate(rawJobs);
         long deduplicationDurationMs = (System.nanoTime() - deduplicationStartedAt) / 1_000_000;
-        log.info("Deduplication complete targetRole={} rawCount={} uniqueCount={} duplicatesRemoved={} durationMs={}",
-                criteria.getTargetRole(),
+        log.info("Deduplication complete rawCount={} uniqueCount={} duplicatesRemoved={} durationMs={}",
                 rawJobs.size(),
                 uniqueJobs.size(),
                 rawJobs.size() - uniqueJobs.size(),
                 deduplicationDurationMs);
         long normalisationStartedAt = System.nanoTime();
         List<Job> enrichedProviderJobs = jobResultEnrichmentService.enrich(criteria, uniqueJobs);
-        log.info("Job normalisation complete targetRole={} count={} durationMs={}",
-                criteria.getTargetRole(),
+        log.info("Job normalisation complete count={} durationMs={}",
                 enrichedProviderJobs.size(),
                 (System.nanoTime() - normalisationStartedAt) / 1_000_000);
-        log.info("Provider search complete targetRole={} rawCount={} uniqueCount={} durationMs={}",
-                criteria.getTargetRole(),
+        log.info("Provider search complete rawCount={} uniqueCount={} durationMs={}",
                 rawJobs.size(),
                 enrichedProviderJobs.size(),
                 (System.nanoTime() - startedAt) / 1_000_000);

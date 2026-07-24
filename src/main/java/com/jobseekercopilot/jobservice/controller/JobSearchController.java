@@ -7,14 +7,15 @@ import com.jobseekercopilot.jobservice.service.JobMatchingClient;
 import com.jobseekercopilot.jobservice.service.JobSearchService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -34,21 +35,14 @@ public class JobSearchController {
     @Operation(
             summary = "Search for jobs",
             description = "Searches for jobs based on user aspirations and work preferences. " +
-                          "Requires X-User-Id header for authentication. " +
-                          "This endpoint validates the request, transforms it to the external API format, " +
-                          "and returns matching job listings."
+                          "Requires a signed end-user Bearer access token. The verified JWT subject " +
+                          "is the only search identity.",
+            security = @SecurityRequirement(name = "bearerAuth")
     )
     public ResponseEntity<ReedJobSearchResponse> searchJobs(
-            @Parameter(description = "User ID for authentication", example = "user-123") @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @AuthenticationPrincipal Jwt accessToken,
             @Parameter(description = "Job search criteria based on user profile") @RequestBody JobSearchRequest request) {
-
-        if (userId == null || userId.isBlank()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .header(HttpHeaders.CONTENT_TYPE, "application/json")
-                    .body(null);
-        }
-
-        ReedJobSearchResponse response = jobSearchService.searchJobs(userId, request);
+        ReedJobSearchResponse response = jobSearchService.searchJobs(accessToken.getSubject(), request);
         return ResponseEntity.ok(response);
     }
 

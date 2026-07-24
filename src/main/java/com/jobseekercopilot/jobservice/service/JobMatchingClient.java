@@ -30,8 +30,7 @@ public class JobMatchingClient {
 
     public List<Job> enrichJobs(String userId, List<Job> jobs) {
         long startedAt = System.nanoTime();
-        log.info("Calling job-matching-service path=/api/v1/job-matches/enrich userId={} jobsReceived={}",
-                userId,
+        log.info("Calling job-matching-service path=/api/v1/job-matches/enrich jobsReceived={}",
                 jobs == null ? 0 : jobs.size());
         try {
             EnrichJobsResponse response = restTemplate.postForObject(
@@ -46,8 +45,7 @@ public class JobMatchingClient {
         } catch (ResourceAccessException | RestClientResponseException ex) {
             log.warn("job-matching-service failed durationMs={} error={}",
                     (System.nanoTime() - startedAt) / 1_000_000,
-                    ex.getClass().getSimpleName(),
-                    ex);
+                    ex.getClass().getSimpleName());
             throw new JobMatchingUnavailableException("Job matching service is unavailable", ex);
         }
     }
