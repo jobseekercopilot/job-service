@@ -10,8 +10,10 @@ import com.jobseekercopilot.generated.jsearchgateway.model.JSearchJob;
 import com.jobseekercopilot.generated.jsearchgateway.model.JSearchSearchRequest;
 import com.jobseekercopilot.generated.jsearchgateway.model.JSearchSearchResponse;
 import com.jobseekercopilot.jobservice.model.dto.Aspirations;
+import com.jobseekercopilot.jobservice.model.dto.CanonicalValueStatus;
 import com.jobseekercopilot.jobservice.model.dto.Job;
 import com.jobseekercopilot.jobservice.model.dto.JobSearchRequest;
+import com.jobseekercopilot.jobservice.model.dto.WorkplaceTypeCode;
 import java.math.BigDecimal;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -60,6 +62,8 @@ class JSearchJobProviderAdapterTest {
         providerJob.setLatitude(new BigDecimal("51.5074"));
         providerJob.setLongitude(new BigDecimal("-0.1278"));
         providerJob.setPostedAt("2026-07-24T09:00:00Z");
+        providerJob.setExpiresAt("2026-08-24T09:00:00Z");
+        providerJob.setRemote(true);
         providerJob.setPrimaryApplyUrl("https://example.test/listing");
         providerJob.setApplyOptions(List.of(directOption));
 
@@ -77,14 +81,45 @@ class JSearchJobProviderAdapterTest {
 
         assertThat(jobs).singleElement().satisfies(job -> {
             assertThat(job.getExternalJobId()).isEqualTo("jsearch-42");
+            assertThat(job.getCanonicalSchemaVersion()).isEqualTo("2.0");
             assertThat(job.getCompanyName()).isEqualTo("Example Ltd");
             assertThat(job.getCanonicalLocation().getLatitude()).isEqualByComparingTo("51.5074");
+            assertThat(job.getCanonicalLocation().getRawCity())
+                    .isEqualTo("London");
+            assertThat(job.getCanonicalLocation().getRawCountry())
+                    .isEqualTo("UK");
             assertThat(job.getSalary().getMin()).isEqualTo(50_000);
+            assertThat(job.getSalary().getRawMinimum())
+                    .isEqualByComparingTo("50000");
+            assertThat(job.getSalary().getRawPeriod()).isEqualTo("YEAR");
+            assertThat(job.getWorkplaceType())
+                    .isEqualTo(WorkplaceTypeCode.REMOTE);
+            assertThat(job.getPostedAtUtc()).isEqualTo(
+                    java.time.OffsetDateTime.parse(
+                            "2026-07-24T09:00:00Z"));
+            assertThat(job.getExpiresAtUtc()).isEqualTo(
+                    java.time.OffsetDateTime.parse(
+                            "2026-08-24T09:00:00Z"));
             assertThat(job.getSourceUrl()).isEqualTo("https://example.test/apply");
             assertThat(job.getSources()).singleElement().satisfies(source -> {
                 assertThat(source.getPublisher()).isEqualTo("Employer Site");
+                assertThat(source.getRawPublisher()).isEqualTo("Employer");
                 assertThat(source.getDirectApply()).isTrue();
+                assertThat(source.getProviderExpiresAtUtc())
+                        .isEqualTo(job.getExpiresAtUtc());
             });
+            assertThat(job.getFieldProvenance())
+                    .filteredOn(provenance ->
+                            "workplaceType".equals(
+                                    provenance.getFieldName()))
+                    .singleElement()
+                    .satisfies(provenance -> {
+                        assertThat(provenance.getStatus())
+                                .isEqualTo(
+                                        CanonicalValueStatus.NORMALISED);
+                        assertThat(provenance.getNormalisedValue())
+                                .isEqualTo("REMOTE");
+                    });
         });
     }
 

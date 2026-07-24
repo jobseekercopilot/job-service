@@ -8,6 +8,12 @@ trap 'rm -rf "$temporary_root"' EXIT INT TERM
 request_schema="$temporary_root/job-search-request.yaml"
 home_schema="$temporary_root/home-location.yaml"
 job_schema="$temporary_root/job.yaml"
+location_schema="$temporary_root/location.yaml"
+source_schema="$temporary_root/source.yaml"
+salary_schema="$temporary_root/salary.yaml"
+experience_schema="$temporary_root/experience.yaml"
+skill_schema="$temporary_root/skill.yaml"
+provenance_schema="$temporary_root/provenance.yaml"
 response_schema="$temporary_root/job-search-response.yaml"
 search_status_schema="$temporary_root/search-status.yaml"
 matching_status_schema="$temporary_root/matching-status.yaml"
@@ -19,6 +25,7 @@ test -f "$contract" && test ! -L "$contract" || {
 }
 
 grep -Eq '^openapi: 3\.0\.[0-9]+$' "$contract"
+grep -F '  version: 1.2.0' "$contract" >/dev/null
 grep -F '  /api/jobs/search:' "$contract" >/dev/null
 grep -F '      operationId: searchJobs' "$contract" >/dev/null
 
@@ -35,10 +42,67 @@ done
 
 sed -n '/^    Job:$/,/^    CanonicalLocation:$/p' "$contract" \
     | sed -n '/^      properties:$/,$p' > "$job_schema"
-for property in canonicalJobId primarySource externalJobId canonicalLocation sourceUrl \
-        sources applicationStatus applicationId cvDocumentId coverLetterDocumentId \
-        appliedAt applicationUpdatedAt; do
+for property in canonicalSchemaVersion canonicalJobId primarySource externalJobId \
+        canonicalLocation employmentTypeCode contractTypeCode workplaceType \
+        postedAtUtc expiresAtUtc applicationDeadlineAtUtc sourceUrl sources \
+        skills experience fieldProvenance applicationStatus applicationId \
+        cvDocumentId coverLetterDocumentId appliedAt applicationUpdatedAt; do
     grep -F "        $property:" "$job_schema" >/dev/null
+done
+
+sed -n '/^    CanonicalLocation:$/,/^    JobSourceReference:$/p' \
+    "$contract" > "$location_schema"
+for property in rawDisplayName rawCity rawRegion rawCountry displayName postcode \
+        latitude longitude areaParts city region countryCode sourceProvider \
+        normalisationStatus normalisationConfidence; do
+    grep -F "        $property:" "$location_schema" >/dev/null
+done
+
+sed -n '/^    JobSourceReference:$/,/^    JobSalary:$/p' \
+    "$contract" > "$source_schema"
+for property in integrationProvider provider publisher rawPublisher sourceType \
+        externalJobId listingUrl applyUrl directApply providerPostedAtRaw \
+        providerPostedAtUtc providerExpiresAtRaw providerExpiresAtUtc \
+        retrievedAtUtc; do
+    grep -F "        $property:" "$source_schema" >/dev/null
+done
+
+sed -n '/^    JobSalary:$/,/^    JobExperience:$/p' \
+    "$contract" > "$salary_schema"
+for property in rawMinimum rawMaximum rawCurrency rawPeriod minimum maximum \
+        currencyCode periodCode predicted sourceProvider normalisationStatus \
+        normalisationConfidence normalisationMethod; do
+    grep -F "        $property:" "$salary_schema" >/dev/null
+done
+
+sed -n '/^    JobExperience:$/,/^    JobSkill:$/p' \
+    "$contract" > "$experience_schema"
+for property in rawValue level minimumYears maximumYears \
+        normalisationConfidence normalisationStatus sourceProvider; do
+    grep -F "        $property:" "$experience_schema" >/dev/null
+done
+
+sed -n '/^    JobSkill:$/,/^    JobFieldProvenance:$/p' \
+    "$contract" > "$skill_schema"
+for property in name rawName type normalisationConfidence \
+        normalisationStatus sourceProvider; do
+    grep -F "        $property:" "$skill_schema" >/dev/null
+done
+
+sed -n '/^    JobFieldProvenance:$/,/^    CanonicalValueStatus:$/p' \
+    "$contract" > "$provenance_schema"
+for property in fieldName sourceProvider sourceExternalJobId rawValue \
+        normalisedValue status confidence ruleVersion; do
+    grep -F "        $property:" "$provenance_schema" >/dev/null
+done
+
+for enum_schema in CanonicalValueStatus EmploymentTypeCode ContractTypeCode \
+        WorkplaceTypeCode ExperienceLevelCode JobSkillType JobSourceType \
+        SalaryPeriodCode; do
+    enum_file="$temporary_root/$enum_schema.yaml"
+    sed -n "/^    $enum_schema:\$/,/^      type: string\$/p" \
+        "$contract" > "$enum_file"
+    grep -F '      - UNKNOWN' "$enum_file" >/dev/null
 done
 
 sed -n '/^    ReedJobSearchResponse:$/,/^    TargetRoleJobResults:$/p' "$contract" \

@@ -8,6 +8,14 @@ trap 'rm -rf "$temporary_root"' EXIT INT TERM
 
 "$script_dir/verify-api-contract.sh" "$source_contract" >/dev/null
 
+stale_version="$temporary_root/stale-canonical-version.yaml"
+sed 's/^  version: 1\.2\.0$/  version: 1.1.0/' \
+    "$source_contract" > "$stale_version"
+if "$script_dir/verify-api-contract.sh" "$stale_version" >/dev/null 2>&1; then
+    echo "producer contract policy test: stale canonical version was accepted" >&2
+    exit 1
+fi
+
 missing_home="$temporary_root/missing-home-location.yaml"
 sed '/^        homeLocation:$/,/^          \\$ref: "#\\/components\\/schemas\\/HomeLocation"$/d' \
     "$source_contract" > "$missing_home"
@@ -77,6 +85,34 @@ awk '
 ' "$source_contract" > "$missing_job_identity"
 if "$script_dir/verify-api-contract.sh" "$missing_job_identity" >/dev/null 2>&1; then
     echo "producer contract policy test: incomplete job identity was accepted" >&2
+    exit 1
+fi
+
+missing_schema_version="$temporary_root/missing-canonical-schema-version.yaml"
+sed '/^        canonicalSchemaVersion:$/,/^          type: string$/d' \
+    "$source_contract" > "$missing_schema_version"
+if "$script_dir/verify-api-contract.sh" "$missing_schema_version" >/dev/null 2>&1; then
+    echo "producer contract policy test: missing canonical schema version was accepted" >&2
+    exit 1
+fi
+
+missing_provenance="$temporary_root/missing-field-provenance.yaml"
+sed '/^        fieldProvenance:$/,/^          type: array$/d' \
+    "$source_contract" > "$missing_provenance"
+if "$script_dir/verify-api-contract.sh" "$missing_provenance" >/dev/null 2>&1; then
+    echo "producer contract policy test: missing field provenance was accepted" >&2
+    exit 1
+fi
+
+missing_unknown="$temporary_root/missing-workplace-unknown.yaml"
+awk '
+    $0 == "    WorkplaceTypeCode:" { in_schema = 1 }
+    in_schema && $0 == "      - UNKNOWN" { next }
+    in_schema && $0 == "    ExperienceLevelCode:" { in_schema = 0 }
+    { print }
+' "$source_contract" > "$missing_unknown"
+if "$script_dir/verify-api-contract.sh" "$missing_unknown" >/dev/null 2>&1; then
+    echo "producer contract policy test: workplace taxonomy without UNKNOWN was accepted" >&2
     exit 1
 fi
 

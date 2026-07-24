@@ -1,11 +1,16 @@
 package com.jobseekercopilot.jobservice.model.dto;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
 public class Job {
+    public static final String CURRENT_CANONICAL_SCHEMA_VERSION = "2.0";
+
+    private String canonicalSchemaVersion =
+            CURRENT_CANONICAL_SCHEMA_VERSION;
     private String id;
     private String canonicalJobId;
     private String provider;
@@ -19,17 +24,27 @@ public class Job {
     private CanonicalLocation canonicalLocation;
     private JobSalary salary;
     private String employmentType;
+    private EmploymentTypeCode employmentTypeCode =
+            EmploymentTypeCode.UNKNOWN;
     private String contractType;
+    private ContractTypeCode contractTypeCode = ContractTypeCode.UNKNOWN;
+    private WorkplaceTypeCode workplaceType = WorkplaceTypeCode.UNKNOWN;
     private String category;
     private String postedDate;
     private String postedAt;
     private String expiresAt;
+    private OffsetDateTime postedAtUtc;
+    private OffsetDateTime expiresAtUtc;
+    private OffsetDateTime applicationDeadlineAtUtc;
     private Double distanceMiles;
     private Boolean remote;
     private String description;
     private String url;
     private String sourceUrl;
     private List<JobSourceReference> sources = new ArrayList<>();
+    private List<JobSkill> skills = new ArrayList<>();
+    private JobExperience experience = new JobExperience();
+    private List<JobFieldProvenance> fieldProvenance = new ArrayList<>();
     private Double matchScore;
     private String applicationStatus;
     private UUID applicationId;
@@ -39,6 +54,18 @@ public class Job {
     private LocalDateTime applicationUpdatedAt;
 
     public Job() {
+    }
+
+    public String getCanonicalSchemaVersion() {
+        return canonicalSchemaVersion;
+    }
+
+    public void setCanonicalSchemaVersion(String canonicalSchemaVersion) {
+        this.canonicalSchemaVersion =
+                canonicalSchemaVersion == null
+                                || canonicalSchemaVersion.isBlank()
+                        ? CURRENT_CANONICAL_SCHEMA_VERSION
+                        : canonicalSchemaVersion;
     }
 
     public String getId() {
@@ -145,12 +172,43 @@ public class Job {
         this.employmentType = employmentType;
     }
 
+    public EmploymentTypeCode getEmploymentTypeCode() {
+        return employmentTypeCode;
+    }
+
+    public void setEmploymentTypeCode(
+            EmploymentTypeCode employmentTypeCode) {
+        this.employmentTypeCode = employmentTypeCode == null
+                ? EmploymentTypeCode.UNKNOWN
+                : employmentTypeCode;
+    }
+
     public String getContractType() {
         return contractType;
     }
 
     public void setContractType(String contractType) {
         this.contractType = contractType;
+    }
+
+    public ContractTypeCode getContractTypeCode() {
+        return contractTypeCode;
+    }
+
+    public void setContractTypeCode(ContractTypeCode contractTypeCode) {
+        this.contractTypeCode = contractTypeCode == null
+                ? ContractTypeCode.UNKNOWN
+                : contractTypeCode;
+    }
+
+    public WorkplaceTypeCode getWorkplaceType() {
+        return workplaceType;
+    }
+
+    public void setWorkplaceType(WorkplaceTypeCode workplaceType) {
+        this.workplaceType = workplaceType == null
+                ? WorkplaceTypeCode.UNKNOWN
+                : workplaceType;
     }
 
     public String getCategory() {
@@ -183,6 +241,31 @@ public class Job {
 
     public void setExpiresAt(String expiresAt) {
         this.expiresAt = expiresAt;
+    }
+
+    public OffsetDateTime getPostedAtUtc() {
+        return postedAtUtc;
+    }
+
+    public void setPostedAtUtc(OffsetDateTime postedAtUtc) {
+        this.postedAtUtc = postedAtUtc;
+    }
+
+    public OffsetDateTime getExpiresAtUtc() {
+        return expiresAtUtc;
+    }
+
+    public void setExpiresAtUtc(OffsetDateTime expiresAtUtc) {
+        this.expiresAtUtc = expiresAtUtc;
+    }
+
+    public OffsetDateTime getApplicationDeadlineAtUtc() {
+        return applicationDeadlineAtUtc;
+    }
+
+    public void setApplicationDeadlineAtUtc(
+            OffsetDateTime applicationDeadlineAtUtc) {
+        this.applicationDeadlineAtUtc = applicationDeadlineAtUtc;
     }
 
     public Double getDistanceMiles() {
@@ -231,6 +314,35 @@ public class Job {
 
     public void setSources(List<JobSourceReference> sources) {
         this.sources = sources == null ? new ArrayList<>() : sources;
+    }
+
+    public List<JobSkill> getSkills() {
+        return skills;
+    }
+
+    public void setSkills(List<JobSkill> skills) {
+        this.skills = skills == null ? new ArrayList<>() : skills;
+    }
+
+    public JobExperience getExperience() {
+        return experience;
+    }
+
+    public void setExperience(JobExperience experience) {
+        this.experience = experience == null
+                ? new JobExperience()
+                : experience;
+    }
+
+    public List<JobFieldProvenance> getFieldProvenance() {
+        return fieldProvenance;
+    }
+
+    public void setFieldProvenance(
+            List<JobFieldProvenance> fieldProvenance) {
+        this.fieldProvenance = fieldProvenance == null
+                ? new ArrayList<>()
+                : fieldProvenance;
     }
 
     public Double getMatchScore() {

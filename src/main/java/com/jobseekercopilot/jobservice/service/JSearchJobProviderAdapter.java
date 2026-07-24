@@ -6,9 +6,11 @@ import com.jobseekercopilot.generated.jsearchgateway.model.JSearchJob;
 import com.jobseekercopilot.generated.jsearchgateway.model.JSearchSearchRequest;
 import com.jobseekercopilot.generated.jsearchgateway.model.JSearchSearchResponse;
 import com.jobseekercopilot.jobservice.model.dto.CanonicalLocation;
+import com.jobseekercopilot.jobservice.model.dto.CanonicalValueStatus;
 import com.jobseekercopilot.jobservice.model.dto.Job;
 import com.jobseekercopilot.jobservice.model.dto.JobSalary;
 import com.jobseekercopilot.jobservice.model.dto.JobSourceReference;
+import com.jobseekercopilot.jobservice.model.dto.WorkplaceTypeCode;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -90,25 +92,73 @@ public class JSearchJobProviderAdapter implements JobProviderAdapter {
         job.setCompanyName(source.getCompanyName());
         job.setLocation(source.getLocationDisplayName());
         CanonicalLocation location = new CanonicalLocation();
+        location.setRawDisplayName(source.getLocationDisplayName());
+        location.setRawCity(source.getCity());
+        location.setRawRegion(source.getState());
+        location.setRawCountry(source.getCountry());
         location.setDisplayName(source.getLocationDisplayName());
         location.setAreaParts(List.of(nonNull(source.getCountry()), nonNull(source.getState()), nonNull(source.getCity())).stream()
                 .filter(value -> !value.isBlank())
                 .toList());
         location.setLatitude(source.getLatitude());
         location.setLongitude(source.getLongitude());
+        location.setSourceProvider(provider());
+        location.setNormalisationStatus(
+                source.getLocationDisplayName() == null
+                        ? CanonicalValueStatus.NOT_PROVIDED
+                        : CanonicalValueStatus.RAW_ONLY);
         job.setCanonicalLocation(location);
         if (source.getSalaryMinimum() != null || source.getSalaryMaximum() != null) {
-            job.setSalary(new JobSalary(source.getSalaryMinimum(), source.getSalaryMaximum(), source.getSalaryCurrency(), source.getSalaryPeriod()));
+            JobSalary salary = new JobSalary(
+                    source.getSalaryMinimum(),
+                    source.getSalaryMaximum(),
+                    source.getSalaryCurrency(),
+                    source.getSalaryPeriod());
+            salary.setSourceProvider(provider());
+            job.setSalary(salary);
         }
         job.setEmploymentType(source.getEmploymentType());
         job.setPostedDate(source.getPostedAt());
         job.setPostedAt(source.getPostedAt());
         job.setExpiresAt(source.getExpiresAt());
+        job.setPostedAtUtc(
+                CanonicalJobMappingSupport.parseOffsetDateTime(
+                        source.getPostedAt()));
+        job.setExpiresAtUtc(
+                CanonicalJobMappingSupport.parseOffsetDateTime(
+                        source.getExpiresAt()));
         job.setRemote(source.getRemote());
+        if (Boolean.TRUE.equals(source.getRemote())) {
+            job.setWorkplaceType(WorkplaceTypeCode.REMOTE);
+        }
         job.setDescription(source.getDescription());
         job.setUrl(primaryApplyUrl(source));
         job.setSourceUrl(primaryApplyUrl(source));
         job.setSources(sourceReferences(source));
+        List<com.jobseekercopilot.jobservice.model.dto.JobFieldProvenance>
+                provenance = new ArrayList<>();
+        provenance.add(CanonicalJobMappingSupport.rawField(
+                provider(), source.getExternalJobId(), "title",
+                source.getTitle()));
+        provenance.add(CanonicalJobMappingSupport.rawField(
+                provider(), source.getExternalJobId(), "employmentType",
+                source.getEmploymentType()));
+        provenance.add(CanonicalJobMappingSupport.timestampField(
+                provider(), source.getExternalJobId(), "postedAt",
+                source.getPostedAt(), job.getPostedAtUtc()));
+        provenance.add(CanonicalJobMappingSupport.timestampField(
+                provider(), source.getExternalJobId(), "expiresAt",
+                source.getExpiresAt(), job.getExpiresAtUtc()));
+        if (Boolean.TRUE.equals(source.getRemote())) {
+            provenance.add(CanonicalJobMappingSupport.normalisedField(
+                    provider(), source.getExternalJobId(), "workplaceType",
+                    source.getRemote(), WorkplaceTypeCode.REMOTE));
+        } else {
+            provenance.add(CanonicalJobMappingSupport.rawField(
+                    provider(), source.getExternalJobId(), "workplaceType",
+                    source.getRemote()));
+        }
+        job.setFieldProvenance(provenance);
         return job;
     }
 
@@ -128,11 +178,21 @@ public class JSearchJobProviderAdapter implements JobProviderAdapter {
         JobSourceReference reference = new JobSourceReference();
         reference.setProvider(provider());
         reference.setExternalJobId(source.getExternalJobId());
+        reference.setRawPublisher(publisher);
         reference.setPublisher(publisherNormalisationService.normalise(publisher, applyUrl, direct, "Other Job Site"));
-        reference.setListingUrl(applyUrl);
-        reference.setApplyUrl(applyUrl);
+        String safeApplyUrl = CanonicalUrlPolicy.safeHttpUrl(applyUrl);
+        reference.setListingUrl(safeApplyUrl);
+        reference.setApplyUrl(safeApplyUrl);
         reference.setDirectApply(direct);
         reference.setProviderPostedAt(parseDateTime(source.getPostedAt()));
+        reference.setProviderPostedAtRaw(source.getPostedAt());
+        reference.setProviderPostedAtUtc(
+                CanonicalJobMappingSupport.parseOffsetDateTime(
+                        source.getPostedAt()));
+        reference.setProviderExpiresAtRaw(source.getExpiresAt());
+        reference.setProviderExpiresAtUtc(
+                CanonicalJobMappingSupport.parseOffsetDateTime(
+                        source.getExpiresAt()));
         return reference;
     }
 
@@ -141,10 +201,14 @@ public class JSearchJobProviderAdapter implements JobProviderAdapter {
             return source.getApplyOptions().stream()
                     .filter(option -> Boolean.TRUE.equals(option.getDirect()) && option.getApplyUrl() != null)
                     .map(JSearchApplyOption::getApplyUrl)
+                    .map(CanonicalUrlPolicy::safeHttpUrl)
+                    .filter(java.util.Objects::nonNull)
                     .findFirst()
-                    .orElse(source.getPrimaryApplyUrl());
+                    .orElse(CanonicalUrlPolicy.safeHttpUrl(
+                            source.getPrimaryApplyUrl()));
         }
-        return source.getPrimaryApplyUrl();
+        return CanonicalUrlPolicy.safeHttpUrl(
+                source.getPrimaryApplyUrl());
     }
 
     private LocalDateTime parseDateTime(String value) {

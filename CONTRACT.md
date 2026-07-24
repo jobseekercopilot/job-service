@@ -65,6 +65,27 @@ provider jobs or turn a successful provider search into HTTP 503. Runtime
 budgets and operator guidance are documented in
 [`docs/PROVIDER_RESILIENCE.md`](docs/PROVIDER_RESILIENCE.md).
 
+## Canonical Job compatibility
+
+API version 1.2.0 publishes additive canonical Job schema version 2.0. It
+retains legacy aliases while adding raw and normalised values, explicit unknown
+taxonomies, decimal salary evidence, offset-aware timestamps, complete source
+records, skills, experience and field-level provenance.
+
+Provider adapters may populate only evidence present in their pinned producer
+contract. Missing values remain absent or explicit `UNKNOWN`; Job Service does
+not infer on-site work from `remote=false`, fabricate a timezone/currency, or
+invent skills and experience. External links pass the canonical HTTP(S) safety
+policy before entering a response.
+
+Job Matching may enrich only match/application-owned fields. Job Service
+correlates Matching results to the original canonical jobs and ignores any
+replacement provider-owned fields or additional jobs.
+
+The field dictionary, provider mapping matrix and compatibility/migration plan
+are authoritative in
+[`docs/CANONICAL_JOB_MODEL.md`](docs/CANONICAL_JOB_MODEL.md).
+
 Job Matching is not covered by these provider snapshots. Its authoritative
 inbound and Application Tracker consumer contracts are tracked by
 [MATCH-02](https://github.com/jobseekercopilot/job-matching-service/issues/2).
@@ -76,7 +97,8 @@ inbound and Application Tracker consumer contracts are tracked by
 3. Update the matching `.SOURCE` file and `SHA256SUMS`.
 4. Run the contract policy, clean Maven verification, and source-built
    container verification.
-5. Review generated API/model differences and canonical mapping tests.
+5. Review generated API/model differences, canonical schema compatibility and
+   provider mapping tests.
 6. Merge the consumer only after producer and consumer evidence is green.
 
 Rollback restores the last reviewed contract snapshot, provenance record, and

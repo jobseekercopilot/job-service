@@ -17,6 +17,8 @@ import com.jobseekercopilot.jobservice.model.dto.CanonicalLocation;
 import com.jobseekercopilot.jobservice.model.dto.HomeLocation;
 import com.jobseekercopilot.jobservice.model.dto.Job;
 import com.jobseekercopilot.jobservice.model.dto.JobSearchRequest;
+import com.jobseekercopilot.jobservice.model.dto.JobSkill;
+import com.jobseekercopilot.jobservice.model.dto.JobSkillType;
 import com.jobseekercopilot.jobservice.model.dto.ProviderResultStatus;
 import java.math.BigDecimal;
 import java.util.List;
@@ -173,6 +175,53 @@ class JobSearchServiceTest {
                 .isEqualTo(firstUsersApplication);
         assertThat(secondResult.getJobs().get(0).getApplicationId()).isNull();
         assertThat(secondResult.getJobs().get(0).getApplicationStatus()).isNull();
+        verify(providerSearchCoordinator, times(1))
+                .search(any(), any(JobSearchCriteria.class), anySet(), anyLong());
+    }
+
+    @Test
+    void providerCacheDeepCopiesCanonicalNestedEvidence() {
+        Job providerJob = job("reed-1", "Developer", "REED");
+        JobSkill skill = new JobSkill();
+        skill.setName("Java");
+        skill.setRawName("java");
+        skill.setType(JobSkillType.REQUIRED);
+        providerJob.setSkills(List.of(skill));
+        when(providerSearchCoordinator.search(
+                any(), any(JobSearchCriteria.class), anySet(), anyLong()))
+                .thenReturn(fanOut(
+                        List.of(providerJob),
+                        List.of(status("REED", "SUCCESS", 1)),
+                        true,
+                        true,
+                        true));
+        when(matchingEnricher.enrich(eq("user-1"), any(), anyLong()))
+                .thenAnswer(invocation -> {
+                    List<Job> jobs = invocation.getArgument(1);
+                    jobs.get(0).getSkills().get(0)
+                            .setName("user-specific mutation");
+                    return new OptionalJobMatchingEnricher.MatchingOutcome(
+                            jobs, "COMPLETE", false);
+                });
+        when(matchingEnricher.enrich(eq("user-2"), any(), anyLong()))
+                .thenAnswer(invocation ->
+                        new OptionalJobMatchingEnricher.MatchingOutcome(
+                                invocation.getArgument(1),
+                                "UNAVAILABLE",
+                                true));
+
+        service.searchJobs("user-1", request("developer"));
+        var secondResult =
+                service.searchJobs("user-2", request("developer"));
+
+        assertThat(secondResult.getJobs().get(0).getSkills())
+                .singleElement()
+                .satisfies(cachedSkill -> {
+                    assertThat(cachedSkill.getName()).isEqualTo("Java");
+                    assertThat(cachedSkill.getRawName()).isEqualTo("java");
+                    assertThat(cachedSkill.getType())
+                            .isEqualTo(JobSkillType.REQUIRED);
+                });
         verify(providerSearchCoordinator, times(1))
                 .search(any(), any(JobSearchCriteria.class), anySet(), anyLong());
     }

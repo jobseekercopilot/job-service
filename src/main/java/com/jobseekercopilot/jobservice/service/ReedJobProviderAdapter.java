@@ -5,9 +5,12 @@ import com.jobseekercopilot.generated.reedgateway.model.ExternalJob;
 import com.jobseekercopilot.generated.reedgateway.model.ExternalSearchRequest;
 import com.jobseekercopilot.generated.reedgateway.model.ExternalSearchResponse;
 import com.jobseekercopilot.jobservice.model.dto.CanonicalLocation;
+import com.jobseekercopilot.jobservice.model.dto.CanonicalValueStatus;
 import com.jobseekercopilot.jobservice.model.dto.Job;
 import com.jobseekercopilot.jobservice.model.dto.JobSalary;
 import com.jobseekercopilot.jobservice.model.dto.JobSourceReference;
+import com.jobseekercopilot.jobservice.model.dto.JobSourceType;
+import com.jobseekercopilot.jobservice.model.dto.SalaryPeriodCode;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -76,32 +79,58 @@ public class ReedJobProviderAdapter implements JobProviderAdapter {
         target.setCompanyName(source.getCompany());
         target.setLocation(source.getLocation());
         CanonicalLocation location = new CanonicalLocation();
+        location.setRawDisplayName(source.getLocation());
         location.setDisplayName(source.getLocation());
+        location.setSourceProvider(provider());
+        location.setNormalisationStatus(source.getLocation() == null
+                ? CanonicalValueStatus.NOT_PROVIDED
+                : CanonicalValueStatus.RAW_ONLY);
         target.setCanonicalLocation(location);
         if (source.getSalary() != null) {
-            target.setSalary(new JobSalary(
+            JobSalary salary = new JobSalary(
                     source.getSalary().getMin(),
                     source.getSalary().getMax(),
                     source.getSalary().getCurrency(),
-                    "YEAR"));
+                    "YEAR");
+            salary.setPeriodCode(SalaryPeriodCode.YEAR);
+            salary.setSourceProvider(provider());
+            target.setSalary(salary);
         }
         target.setEmploymentType(source.getEmploymentType());
         target.setPostedDate(source.getPostedDate());
         target.setPostedAt(source.getPostedDate());
+        target.setPostedAtUtc(
+                CanonicalJobMappingSupport.parseOffsetDateTime(
+                        source.getPostedDate()));
         target.setDescription(source.getDescription());
-        target.setUrl(source.getUrl());
-        target.setSourceUrl(source.getUrl());
+        String safeSourceUrl =
+                CanonicalUrlPolicy.safeHttpUrl(source.getUrl());
+        target.setUrl(safeSourceUrl);
+        target.setSourceUrl(safeSourceUrl);
         target.setMatchScore(source.getMatchScore());
 
         JobSourceReference sourceReference = new JobSourceReference();
         sourceReference.setProvider(provider());
         sourceReference.setExternalJobId(source.getId());
+        sourceReference.setRawPublisher("Reed.co.uk");
         sourceReference.setPublisher(publisherNormalisationService.normalise("Reed.co.uk", source.getUrl(), false, "Reed.co.uk"));
-        sourceReference.setListingUrl(source.getUrl());
-        sourceReference.setApplyUrl(source.getUrl());
+        sourceReference.setSourceType(JobSourceType.JOB_BOARD);
+        sourceReference.setListingUrl(safeSourceUrl);
+        sourceReference.setApplyUrl(safeSourceUrl);
         sourceReference.setDirectApply(false);
         sourceReference.setProviderPostedAt(parseDateTime(source.getPostedDate()));
+        sourceReference.setProviderPostedAtRaw(source.getPostedDate());
+        sourceReference.setProviderPostedAtUtc(target.getPostedAtUtc());
         target.setSources(List.of(sourceReference));
+        target.setFieldProvenance(List.of(
+                CanonicalJobMappingSupport.rawField(
+                        provider(), source.getId(), "title", source.getTitle()),
+                CanonicalJobMappingSupport.rawField(
+                        provider(), source.getId(), "employmentType",
+                        source.getEmploymentType()),
+                CanonicalJobMappingSupport.timestampField(
+                        provider(), source.getId(), "postedAt",
+                        source.getPostedDate(), target.getPostedAtUtc())));
         return target;
     }
 
