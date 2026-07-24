@@ -38,9 +38,13 @@ attempts optional Job Matching enrichment before returning.
   snapshots prevent user-specific application state crossing users. The cache
   is still an unbounded in-memory store with no provider-terms-aware TTL,
   eviction policy or distributed invalidation.
-- **P1 canonical model:** provenance, raw values, normalisation confidence,
-  robust employment/remote taxonomy, timezone-safe timestamps, skills,
-  experience, expiry and deadline semantics are incomplete.
+- **Completed SEARCH-04 canonical schema boundary:** additive schema 2.0
+  defines stable provider/source identifiers, raw and normalised values,
+  explicit unknown employment/contract/workplace taxonomies, decimal salary
+  provenance/confidence, offset-safe posting/expiry/deadline timestamps,
+  skills, experience and field-level mapping evidence. Legacy aliases remain
+  for compatibility, and unsafe non-HTTP(S) links are rejected. SEARCH-05 and
+  provider mapping issues still own complete deterministic value mapping.
 - **P1 normalisation:** salaries use fixed multipliers without currency
   conversion/provenance; dates lose timezone; external URLs are not explicitly
   limited to safe HTTP(S) schemes.

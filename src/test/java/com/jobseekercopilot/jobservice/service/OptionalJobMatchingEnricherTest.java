@@ -9,7 +9,10 @@ import static org.mockito.Mockito.when;
 import com.jobseekercopilot.jobservice.config.JobSearchResilienceProperties;
 import com.jobseekercopilot.jobservice.logging.CorrelationIdFilter;
 import com.jobseekercopilot.jobservice.model.dto.Job;
+import com.jobseekercopilot.jobservice.model.dto.JobSkill;
+import com.jobseekercopilot.jobservice.model.dto.JobSkillType;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.SynchronousQueue;
@@ -37,7 +40,8 @@ class OptionalJobMatchingEnricherTest {
     void returnsEnrichedJobsAndPropagatesCorrelationContext() {
         executor = executor(1, 1);
         AtomicReference<String> downstreamCorrelation = new AtomicReference<>();
-        Job enriched = job("enriched");
+        Job enriched = job("provider");
+        enriched.setMatchScore(0.91);
         when(client.enrichJobs(eq("user-1"), anyList()))
                 .thenAnswer(invocation -> {
                     downstreamCorrelation.set(
@@ -52,8 +56,49 @@ class OptionalJobMatchingEnricherTest {
 
         assertThat(outcome.status()).isEqualTo("COMPLETE");
         assertThat(outcome.degraded()).isFalse();
-        assertThat(outcome.jobs()).containsExactly(enriched);
+        assertThat(outcome.jobs()).singleElement().satisfies(job -> {
+            assertThat(job.getId()).isEqualTo("provider");
+            assertThat(job.getMatchScore()).isEqualTo(0.91);
+        });
         assertThat(downstreamCorrelation).hasValue("matching-correlation");
+    }
+
+    @Test
+    void matchingCanOnlyOverlayItsOwnedFieldsOnCanonicalJobs() {
+        executor = executor(1, 1);
+        UUID applicationId = UUID.randomUUID();
+        Job providerJob = job("job-1");
+        providerJob.setCanonicalJobId("canonical-1");
+        providerJob.setTitle("Provider-owned title");
+        JobSkill skill = new JobSkill();
+        skill.setName("Java");
+        skill.setType(JobSkillType.REQUIRED);
+        providerJob.setSkills(List.of(skill));
+
+        Job matchingJob = job("matching-replacement-id");
+        matchingJob.setCanonicalJobId("canonical-1");
+        matchingJob.setTitle("Untrusted replacement title");
+        matchingJob.setSkills(List.of());
+        matchingJob.setMatchScore(0.88);
+        matchingJob.setApplicationId(applicationId);
+        matchingJob.setApplicationStatus("APPLIED");
+        when(client.enrichJobs(eq("user-1"), anyList()))
+                .thenReturn(List.of(matchingJob));
+
+        var outcome = enricher(300).enrich(
+                "user-1", List.of(providerJob), deadlineAfter(500));
+
+        assertThat(outcome.jobs()).singleElement().satisfies(job -> {
+            assertThat(job).isSameAs(providerJob);
+            assertThat(job.getCanonicalSchemaVersion()).isEqualTo("2.0");
+            assertThat(job.getTitle()).isEqualTo("Provider-owned title");
+            assertThat(job.getSkills()).singleElement()
+                    .extracting(JobSkill::getName)
+                    .isEqualTo("Java");
+            assertThat(job.getMatchScore()).isEqualTo(0.88);
+            assertThat(job.getApplicationId()).isEqualTo(applicationId);
+            assertThat(job.getApplicationStatus()).isEqualTo("APPLIED");
+        });
     }
 
     @Test

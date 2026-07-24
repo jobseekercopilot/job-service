@@ -4,8 +4,11 @@ import com.jobseekercopilot.jobservice.model.dto.Aspirations;
 import com.jobseekercopilot.jobservice.model.dto.CanonicalLocation;
 import com.jobseekercopilot.jobservice.model.dto.HomeLocation;
 import com.jobseekercopilot.jobservice.model.dto.Job;
+import com.jobseekercopilot.jobservice.model.dto.JobExperience;
+import com.jobseekercopilot.jobservice.model.dto.JobFieldProvenance;
 import com.jobseekercopilot.jobservice.model.dto.JobSalary;
 import com.jobseekercopilot.jobservice.model.dto.JobSearchRequest;
+import com.jobseekercopilot.jobservice.model.dto.JobSkill;
 import com.jobseekercopilot.jobservice.model.dto.JobSourceReference;
 import com.jobseekercopilot.jobservice.model.dto.ProviderResultStatus;
 import com.jobseekercopilot.jobservice.model.dto.ReedJobSearchResponse;
@@ -388,6 +391,8 @@ public class JobSearchService {
 
     private Job copyProviderJob(Job source) {
         Job target = new Job();
+        target.setCanonicalSchemaVersion(
+                source.getCanonicalSchemaVersion());
         target.setId(source.getId());
         target.setCanonicalJobId(source.getCanonicalJobId());
         target.setProvider(source.getProvider());
@@ -401,11 +406,18 @@ public class JobSearchService {
         target.setCanonicalLocation(copyLocation(source.getCanonicalLocation()));
         target.setSalary(copySalary(source.getSalary()));
         target.setEmploymentType(source.getEmploymentType());
+        target.setEmploymentTypeCode(source.getEmploymentTypeCode());
         target.setContractType(source.getContractType());
+        target.setContractTypeCode(source.getContractTypeCode());
+        target.setWorkplaceType(source.getWorkplaceType());
         target.setCategory(source.getCategory());
         target.setPostedDate(source.getPostedDate());
         target.setPostedAt(source.getPostedAt());
         target.setExpiresAt(source.getExpiresAt());
+        target.setPostedAtUtc(source.getPostedAtUtc());
+        target.setExpiresAtUtc(source.getExpiresAtUtc());
+        target.setApplicationDeadlineAtUtc(
+                source.getApplicationDeadlineAtUtc());
         target.setDistanceMiles(source.getDistanceMiles());
         target.setRemote(source.getRemote());
         target.setDescription(source.getDescription());
@@ -414,6 +426,16 @@ public class JobSearchService {
         target.setSources(source.getSources() == null
                 ? List.of()
                 : source.getSources().stream().map(this::copySource).toList());
+        target.setSkills(source.getSkills() == null
+                ? List.of()
+                : source.getSkills().stream().map(this::copySkill).toList());
+        target.setExperience(copyExperience(source.getExperience()));
+        target.setFieldProvenance(
+                source.getFieldProvenance() == null
+                        ? List.of()
+                        : source.getFieldProvenance().stream()
+                                .map(this::copyFieldProvenance)
+                                .toList());
         target.setMatchScore(source.getMatchScore());
         return target;
     }
@@ -423,6 +445,10 @@ public class JobSearchService {
             return null;
         }
         CanonicalLocation target = new CanonicalLocation();
+        target.setRawDisplayName(source.getRawDisplayName());
+        target.setRawCity(source.getRawCity());
+        target.setRawRegion(source.getRawRegion());
+        target.setRawCountry(source.getRawCountry());
         target.setDisplayName(source.getDisplayName());
         target.setPostcode(source.getPostcode());
         target.setLatitude(source.getLatitude());
@@ -430,6 +456,13 @@ public class JobSearchService {
         target.setAreaParts(source.getAreaParts() == null
                 ? null
                 : List.copyOf(source.getAreaParts()));
+        target.setCity(source.getCity());
+        target.setRegion(source.getRegion());
+        target.setCountryCode(source.getCountryCode());
+        target.setSourceProvider(source.getSourceProvider());
+        target.setNormalisationStatus(source.getNormalisationStatus());
+        target.setNormalisationConfidence(
+                source.getNormalisationConfidence());
         return target;
     }
 
@@ -445,18 +478,81 @@ public class JobSearchService {
         target.setNormalisedAnnualMinimum(source.getNormalisedAnnualMinimum());
         target.setNormalisedAnnualMaximum(source.getNormalisedAnnualMaximum());
         target.setNormalisedAnnualMidpoint(source.getNormalisedAnnualMidpoint());
+        target.setRawMinimum(source.getRawMinimum());
+        target.setRawMaximum(source.getRawMaximum());
+        target.setRawCurrency(source.getRawCurrency());
+        target.setRawPeriod(source.getRawPeriod());
+        target.setMinimum(source.getMinimum());
+        target.setMaximum(source.getMaximum());
+        target.setCurrencyCode(source.getCurrencyCode());
+        target.setPeriodCode(source.getPeriodCode());
+        target.setPredicted(source.getPredicted());
+        target.setSourceProvider(source.getSourceProvider());
+        target.setNormalisationStatus(source.getNormalisationStatus());
+        target.setNormalisationConfidence(
+                source.getNormalisationConfidence());
+        target.setNormalisationMethod(source.getNormalisationMethod());
         return target;
     }
 
     private JobSourceReference copySource(JobSourceReference source) {
         JobSourceReference target = new JobSourceReference();
         target.setProvider(source.getProvider());
+        target.setRawPublisher(source.getRawPublisher());
         target.setPublisher(source.getPublisher());
+        target.setSourceType(source.getSourceType());
         target.setExternalJobId(source.getExternalJobId());
         target.setListingUrl(source.getListingUrl());
         target.setApplyUrl(source.getApplyUrl());
         target.setDirectApply(source.getDirectApply());
         target.setProviderPostedAt(source.getProviderPostedAt());
+        target.setProviderPostedAtRaw(source.getProviderPostedAtRaw());
+        target.setProviderPostedAtUtc(source.getProviderPostedAtUtc());
+        target.setProviderExpiresAtRaw(source.getProviderExpiresAtRaw());
+        target.setProviderExpiresAtUtc(source.getProviderExpiresAtUtc());
+        target.setRetrievedAtUtc(source.getRetrievedAtUtc());
+        return target;
+    }
+
+    private JobSkill copySkill(JobSkill source) {
+        JobSkill target = new JobSkill();
+        target.setName(source.getName());
+        target.setRawName(source.getRawName());
+        target.setType(source.getType());
+        target.setNormalisationConfidence(
+                source.getNormalisationConfidence());
+        target.setNormalisationStatus(source.getNormalisationStatus());
+        target.setSourceProvider(source.getSourceProvider());
+        return target;
+    }
+
+    private JobExperience copyExperience(JobExperience source) {
+        if (source == null) {
+            return new JobExperience();
+        }
+        JobExperience target = new JobExperience();
+        target.setRawValue(source.getRawValue());
+        target.setLevel(source.getLevel());
+        target.setMinimumYears(source.getMinimumYears());
+        target.setMaximumYears(source.getMaximumYears());
+        target.setNormalisationConfidence(
+                source.getNormalisationConfidence());
+        target.setNormalisationStatus(source.getNormalisationStatus());
+        target.setSourceProvider(source.getSourceProvider());
+        return target;
+    }
+
+    private JobFieldProvenance copyFieldProvenance(
+            JobFieldProvenance source) {
+        JobFieldProvenance target = new JobFieldProvenance();
+        target.setFieldName(source.getFieldName());
+        target.setSourceProvider(source.getSourceProvider());
+        target.setSourceExternalJobId(source.getSourceExternalJobId());
+        target.setRawValue(source.getRawValue());
+        target.setNormalisedValue(source.getNormalisedValue());
+        target.setStatus(source.getStatus());
+        target.setConfidence(source.getConfidence());
+        target.setRuleVersion(source.getRuleVersion());
         return target;
     }
 

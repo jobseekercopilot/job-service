@@ -11,6 +11,9 @@ end-user access token. Provider fan-out now runs concurrently within explicit
 request, provider, connection and capacity budgets; healthy provider jobs
 survive other provider failures and optional Job Matching degradation. Cached
 provider snapshots are isolated from user-specific application state.
+Canonical Job schema 2.0 adds lossless raw evidence, explicit unknown
+taxonomies, provenance, decimal salary fields, timezone-safe instants, skills
+and experience without removing legacy fields.
 Saved-job persistence and other tracked beta work are not implemented. See
 [`docs/BETA_READINESS_AUDIT.md`](docs/BETA_READINESS_AUDIT.md).
 
@@ -56,6 +59,8 @@ Provider gateway URLs and request deadlines must be supplied as runtime
 configuration. Provider credentials do not belong in this service.
 See [`docs/PROVIDER_RESILIENCE.md`](docs/PROVIDER_RESILIENCE.md) for timeout
 defaults, partial-result semantics, failure categories and operator actions.
+See [`docs/CANONICAL_JOB_MODEL.md`](docs/CANONICAL_JOB_MODEL.md) for the field
+dictionary, provider matrix, safe-link rule and compatibility plan.
 
 `develop` is the integration/default branch for beta hardening. See
 `CONTRIBUTING.md`, `SECURITY.md`, and `LICENSE`.
