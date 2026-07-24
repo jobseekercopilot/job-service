@@ -38,9 +38,17 @@ normalisation, deduplication, matching enrichment, and persistence.
 ## Local verification
 
 ```bash
+./scripts/test-contract-policy.sh
+./scripts/verify-contracts.sh
 mvn -B clean verify
 docker build -t local/job-service .
 ```
+
+Reed, Adzuna, and JSearch clients are generated during the Maven build from
+checksum-protected producer contracts and immutable `.SOURCE` records under
+`src/main/openapi`. Generated sources and binaries remain under `target/` and
+are never committed. See [`CONTRACT.md`](CONTRACT.md) for the compatibility,
+update, and rollback policy.
 
 Provider gateway URLs and request deadlines must be supplied as runtime
 configuration. Provider credentials do not belong in this service.

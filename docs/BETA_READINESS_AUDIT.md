@@ -8,9 +8,11 @@ them, caches them in memory, and invokes Job Matching before returning.
 
 ## Blocking findings
 
-- **Completed build control:** the Reed client is generated from a pinned,
-  checksum-verified source-owned contract. Adzuna, JSearch and Job Matching use
-  source-owned DTOs in the current repository.
+- **Completed provider build control:** Reed, Adzuna and JSearch clients are
+  generated with the pinned OpenAPI Generator from exact producer revisions.
+  Contract checks fail closed on missing input/provenance, checksum or revision
+  drift, and required-operation removal. Job Matching remains the separately
+  tracked handwritten contract boundary.
 - **P0 availability boundary:** every search requires the out-of-scope Job
   Matching service; its failure turns provider results into HTTP 503. Matching
   must be optional/asynchronous or otherwise isolated without auditing that

@@ -1,0 +1,4 @@
+repository=jobseekercopilot/adzuna-gateway
+revision=a10115b0ab60da26469504d964819d44b2d0d550
+path=api/openapi.yaml
+sha256=10391e68dcec30e4fb765bcb3ddaf2150c0cc8b8adc529a11c8bf38fe7ae9331
