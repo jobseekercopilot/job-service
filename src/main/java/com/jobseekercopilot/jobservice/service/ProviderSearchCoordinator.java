@@ -23,6 +23,7 @@ import org.springframework.web.client.RestClientResponseException;
 
 @Component
 public class ProviderSearchCoordinator {
+    private static final int MAX_RESULTS_PER_PROVIDER = 100;
 
     private static final Logger log =
             LoggerFactory.getLogger(ProviderSearchCoordinator.class);
@@ -140,16 +141,20 @@ public class ProviderSearchCoordinator {
             List<Job> jobs = work.future().isDone()
                     ? work.future().get()
                     : work.future().get(remaining, TimeUnit.NANOSECONDS);
-            List<Job> safeJobs = jobs == null ? List.of() : jobs;
-            log.info("Provider {} returned rawCount={}",
+            List<Job> providerJobs = jobs == null ? List.of() : jobs;
+            List<Job> safeJobs = providerJobs.stream()
+                    .limit(MAX_RESULTS_PER_PROVIDER)
+                    .toList();
+            log.info("Provider {} returned rawCount={} acceptedCount={}",
                     work.provider(),
+                    providerJobs.size(),
                     safeJobs.size());
             return new ProviderCallResult(
                     safeJobs,
                     new ProviderResultStatus(
                             work.provider(),
                             "SUCCESS",
-                            safeJobs.size(),
+                            providerJobs.size(),
                             null));
         } catch (TimeoutException exception) {
             work.future().cancel(true);

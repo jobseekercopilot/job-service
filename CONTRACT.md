@@ -67,8 +67,9 @@ budgets and operator guidance are documented in
 
 ## Canonical Job compatibility
 
-API version 2.0.0 publishes canonical Job schema version 2.0 and the
-owner-scoped saved-job resource. The canonical job model
+API version 2.1.0 publishes canonical Job schema version 2.0, bounded aggregate
+Job Search paging/sorting and the owner-scoped saved-job resource. The
+canonical job model
 retains legacy aliases while adding raw and normalised values, explicit unknown
 taxonomies, decimal salary evidence, offset-aware timestamps, complete source
 records, skills, experience and field-level provenance.
@@ -94,6 +95,9 @@ replacement provider-owned fields or additional jobs.
 The field dictionary, provider mapping matrix and compatibility/migration plan
 are authoritative in
 [`docs/CANONICAL_JOB_MODEL.md`](docs/CANONICAL_JOB_MODEL.md).
+Paging defaults, deterministic tie-breakers, bounded provider traversal and
+consumer rollout are defined in
+[`docs/JOB_SEARCH_PAGING.md`](docs/JOB_SEARCH_PAGING.md).
 
 Job Matching is not covered by these provider snapshots. Its authoritative
 inbound and Application Tracker consumer contracts are tracked by

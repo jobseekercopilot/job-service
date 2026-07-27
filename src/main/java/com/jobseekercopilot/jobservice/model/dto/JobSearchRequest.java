@@ -26,6 +26,39 @@ public class JobSearchRequest {
     @Schema(description = "Optional list of integration providers to search. Empty means all enabled providers.")
     private List<String> selectedProviders;
 
+    @Schema(
+            description = "One-based aggregate result page.",
+            example = "1",
+            minimum = "1",
+            maximum = "100",
+            defaultValue = "1"
+    )
+    private Integer page;
+
+    @Schema(
+            description = "Maximum aggregate results returned on one page.",
+            example = "10",
+            minimum = "1",
+            maximum = "50",
+            defaultValue = "10"
+    )
+    private Integer pageSize;
+
+    @Schema(
+            description = "Stable aggregate result order.",
+            allowableValues = {
+                    "MOST_RELEVANT",
+                    "CLOSEST",
+                    "HIGHEST_SALARY",
+                    "NEWEST_POSTED",
+                    "OLDEST_POSTED",
+                    "COMPANY_AZ",
+                    "JOB_TITLE_AZ"
+            },
+            defaultValue = "MOST_RELEVANT"
+    )
+    private String sort;
+
     public JobSearchRequest() {
     }
 
@@ -59,5 +92,29 @@ public class JobSearchRequest {
 
     public void setSelectedProviders(List<String> selectedProviders) {
         this.selectedProviders = selectedProviders;
+    }
+
+    public Integer getPage() {
+        return page;
+    }
+
+    public void setPage(Integer page) {
+        this.page = page;
+    }
+
+    public Integer getPageSize() {
+        return pageSize;
+    }
+
+    public void setPageSize(Integer pageSize) {
+        this.pageSize = pageSize;
+    }
+
+    public String getSort() {
+        return sort;
+    }
+
+    public void setSort(String sort) {
+        this.sort = sort;
     }
 }

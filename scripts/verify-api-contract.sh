@@ -15,6 +15,8 @@ experience_schema="$temporary_root/experience.yaml"
 skill_schema="$temporary_root/skill.yaml"
 provenance_schema="$temporary_root/provenance.yaml"
 response_schema="$temporary_root/job-search-response.yaml"
+request_sort_schema="$temporary_root/job-search-request-sort.yaml"
+response_sort_schema="$temporary_root/job-search-response-sort.yaml"
 search_status_schema="$temporary_root/search-status.yaml"
 matching_status_schema="$temporary_root/matching-status.yaml"
 provider_status_schema="$temporary_root/provider-result-status.yaml"
@@ -43,7 +45,7 @@ test -f "$contract" && test ! -L "$contract" || {
 }
 
 grep -Eq '^openapi: 3\.0\.[0-9]+$' "$contract"
-grep -F '  version: 2.0.0' "$contract" >/dev/null
+grep -F '  version: 2.1.0' "$contract" >/dev/null
 grep -F '  /api/jobs/search:' "$contract" >/dev/null
 grep -F '      operationId: searchJobs' "$contract" >/dev/null
 grep -F '  /api/jobs/saved:' "$contract" >/dev/null
@@ -58,6 +60,14 @@ grep -F '        homeLocation:' "$request_schema" >/dev/null
 grep -E "          \\\$ref: ['\"]#/components/schemas/HomeLocation['\"]" \
     "$request_schema" >/dev/null
 grep -F '        selectedProviders:' "$request_schema" >/dev/null
+for property in page pageSize sort; do
+    grep -F "        $property:" "$request_schema" >/dev/null
+done
+extract_property JobSearchRequest sort > "$request_sort_schema"
+for sort in MOST_RELEVANT CLOSEST HIGHEST_SALARY NEWEST_POSTED \
+        OLDEST_POSTED COMPANY_AZ JOB_TITLE_AZ; do
+    grep -F "          - $sort" "$request_sort_schema" >/dev/null
+done
 
 extract_schema HomeLocation > "$home_schema"
 for property in displayName postcode latitude longitude; do
@@ -126,13 +136,21 @@ grep -F '        resultsByTargetRole:' "$response_schema" >/dev/null
 grep -F '        providerResults:' "$response_schema" >/dev/null
 grep -F '        searchStatus:' "$response_schema" >/dev/null
 grep -F '        matchingStatus:' "$response_schema" >/dev/null
+for property in totalResults page pageSize totalPages sort; do
+    grep -F "        $property:" "$response_schema" >/dev/null
+done
 extract_property ReedJobSearchResponse searchStatus > "$search_status_schema"
 extract_property ReedJobSearchResponse matchingStatus > "$matching_status_schema"
+extract_property ReedJobSearchResponse sort > "$response_sort_schema"
 for status in COMPLETE PARTIAL; do
     grep -F "          - $status" "$search_status_schema" >/dev/null
 done
 for status in COMPLETE NOT_RUN UNAVAILABLE TIMED_OUT SATURATED; do
     grep -F "          - $status" "$matching_status_schema" >/dev/null
+done
+for sort in MOST_RELEVANT CLOSEST HIGHEST_SALARY NEWEST_POSTED \
+        OLDEST_POSTED COMPANY_AZ JOB_TITLE_AZ; do
+    grep -F "          - $sort" "$response_sort_schema" >/dev/null
 done
 
 extract_schema ProviderResultStatus > "$provider_status_schema"

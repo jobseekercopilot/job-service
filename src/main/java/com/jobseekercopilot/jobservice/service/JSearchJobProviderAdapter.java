@@ -16,23 +16,32 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 @Component
 public class JSearchJobProviderAdapter implements JobProviderAdapter {
     private static final Pattern UK_POSTCODE = Pattern.compile("^[A-Z]{1,2}\\d[A-Z\\d]?\\s*\\d[A-Z]{2}$", Pattern.CASE_INSENSITIVE);
+    private static final int MAX_RESULTS = 100;
+    private static final int MAX_CURSOR_PAGES = 2;
 
     private final JSearchJobsApi jSearchJobsApi;
     private final PublisherNormalisationService publisherNormalisationService;
     private final boolean enabled;
+    private final int maxCursorPages;
 
     public JSearchJobProviderAdapter(JSearchJobsApi jSearchJobsApi,
                                      PublisherNormalisationService publisherNormalisationService,
-                                     @Value("${providers.jsearch.enabled:${JSEARCH_ENABLED:true}}") boolean enabled) {
+                                     @Value("${providers.jsearch.enabled:${JSEARCH_ENABLED:true}}") boolean enabled,
+                                     @Value("${providers.jsearch.max-cursor-pages:${JSEARCH_MAX_CURSOR_PAGES:2}}") int maxCursorPages) {
         this.jSearchJobsApi = jSearchJobsApi;
         this.publisherNormalisationService = publisherNormalisationService;
         this.enabled = enabled;
+        this.maxCursorPages = Math.max(
+                1,
+                Math.min(maxCursorPages, MAX_CURSOR_PAGES));
     }
 
     @Override
@@ -47,14 +56,40 @@ public class JSearchJobProviderAdapter implements JobProviderAdapter {
 
     @Override
     public List<Job> search(String userId, JobSearchCriteria criteria) {
-        JSearchSearchRequest request = new JSearchSearchRequest();
-        request.setTargetRole(criteria.getTargetRole());
-        request.setLocation(jsearchLocation(criteria));
-        request.setRemoteOnly(criteria.isRemoteOnly());
-        JSearchSearchResponse response = jSearchJobsApi.search(request);
-        return response == null || response.getJobs() == null
-                ? List.of()
-                : response.getJobs().stream().map(this::toJob).toList();
+        List<Job> jobs = new ArrayList<>();
+        Set<String> consumedCursors = new HashSet<>();
+        String cursor = null;
+
+        for (int page = 0;
+                page < maxCursorPages && jobs.size() < MAX_RESULTS;
+                page++) {
+            JSearchSearchRequest request = new JSearchSearchRequest();
+            request.setTargetRole(criteria.getTargetRole());
+            request.setLocation(jsearchLocation(criteria));
+            request.setRemoteOnly(criteria.isRemoteOnly());
+            request.setCursor(cursor);
+            JSearchSearchResponse response = jSearchJobsApi.search(request);
+            if (response == null
+                    || response.getJobs() == null
+                    || response.getJobs().isEmpty()) {
+                break;
+            }
+            response.getJobs().stream()
+                    .limit(MAX_RESULTS - jobs.size())
+                    .map(this::toJob)
+                    .forEach(jobs::add);
+
+            String nextCursor = normaliseCursor(response.getCursor());
+            if (nextCursor == null || !consumedCursors.add(nextCursor)) {
+                break;
+            }
+            cursor = nextCursor;
+        }
+        return List.copyOf(jobs);
+    }
+
+    private String normaliseCursor(String cursor) {
+        return cursor == null || cursor.isBlank() ? null : cursor.trim();
     }
 
     private String jsearchLocation(JobSearchCriteria criteria) {
