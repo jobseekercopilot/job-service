@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -36,7 +37,20 @@ public class JobSearchService {
     private static final Logger log = LoggerFactory.getLogger(JobSearchService.class);
     private static final int DEFAULT_DISTANCE = 25;
     private static final int DEFAULT_PAGE = 1;
-    private static final int RESPONSE_PAGE_SIZE = 10;
+    private static final int DEFAULT_PAGE_SIZE = 10;
+    private static final int MAX_PAGE = 100;
+    private static final int MAX_PAGE_SIZE = 50;
+    private static final int MAX_TARGET_ROLES = 10;
+    private static final int MAX_AGGREGATE_RESULTS = 1_000;
+    private static final String DEFAULT_SORT = "MOST_RELEVANT";
+    private static final Set<String> SUPPORTED_SORTS = Set.of(
+            DEFAULT_SORT,
+            "CLOSEST",
+            "HIGHEST_SALARY",
+            "NEWEST_POSTED",
+            "OLDEST_POSTED",
+            "COMPANY_AZ",
+            "JOB_TITLE_AZ");
 
     private final ProviderSearchCoordinator providerSearchCoordinator;
     private final JobDeduplicationService deduplicationService;
@@ -70,13 +84,18 @@ public class JobSearchService {
         validateRequest(request);
 
         List<String> targetRoles = targetRoles(request);
+        int page = page(request);
+        int pageSize = pageSize(request);
+        String sort = sort(request);
         Set<String> selectedProviders = selectedProviders(request);
-        log.info("Job search started roles={} providers={}",
+        log.info("Job search started roles={} providers={} page={} pageSize={} sort={}",
                 targetRoles.size(),
-                selectedProviders.isEmpty() ? "ALL" : String.join(",", selectedProviders));
-        List<ReedJobSearchResponse.TargetRoleJobResults> resultsByTargetRole = new ArrayList<>();
+                selectedProviders.isEmpty() ? "ALL" : String.join(",", selectedProviders),
+                page,
+                pageSize,
+                sort);
         List<ProviderResultStatus> providerResults = new ArrayList<>();
-        List<Job> allJobs = new ArrayList<>();
+        List<RoleJob> aggregateJobs = new ArrayList<>();
         boolean anyProviderSuccess = false;
         boolean anyProviderAttempted = false;
         boolean partial = false;
@@ -105,10 +124,6 @@ public class JobSearchService {
             partial |= !providerSearchResult.complete();
 
             if (!providerSearchResult.anySuccess()) {
-                resultsByTargetRole.add(
-                        new ReedJobSearchResponse.TargetRoleJobResults(
-                                targetRole,
-                                List.of()));
                 continue;
             }
 
@@ -123,8 +138,8 @@ public class JobSearchService {
                     matchingStatus,
                     matchingOutcome.status());
             partial |= matchingOutcome.degraded();
-            resultsByTargetRole.add(new ReedJobSearchResponse.TargetRoleJobResults(targetRole, enrichedJobs));
-            allJobs.addAll(enrichedJobs);
+            enrichedJobs.forEach(job ->
+                    aggregateJobs.add(new RoleJob(targetRole, job)));
         }
 
         if (!anyProviderSuccess) {
@@ -134,20 +149,43 @@ public class JobSearchService {
             throw new DownstreamServiceUnavailableException(reason);
         }
 
+        List<RoleJob> boundedJobs = aggregateJobs.stream()
+                .sorted(resultOrder(sort))
+                .limit(MAX_AGGREGATE_RESULTS)
+                .toList();
+        int totalResults = boundedJobs.size();
+        long requestedStart = (long) (page - 1) * pageSize;
+        int fromIndex = (int) Math.min(requestedStart, totalResults);
+        int toIndex = Math.min(fromIndex + pageSize, totalResults);
+        List<RoleJob> pageRows = boundedJobs.subList(fromIndex, toIndex);
+        List<Job> pageJobs = pageRows.stream().map(RoleJob::job).toList();
+        List<ReedJobSearchResponse.TargetRoleJobResults> resultsByTargetRole =
+                targetRoles.stream()
+                        .map(role -> new ReedJobSearchResponse.TargetRoleJobResults(
+                                role,
+                                pageRows.stream()
+                                        .filter(row -> row.targetRole().equals(role))
+                                        .map(RoleJob::job)
+                                        .toList()))
+                        .toList();
+
         String searchStatus = partial ? "PARTIAL" : "COMPLETE";
-        log.info("Job search completed roles={} finalCount={} durationMs={}",
+        log.info("Job search completed roles={} availableCount={} returnedCount={} durationMs={}",
                 targetRoles.size(),
-                allJobs.size(),
+                totalResults,
+                pageJobs.size(),
                 (System.nanoTime() - searchStartedAt) / 1_000_000);
-        return new ReedJobSearchResponse(
-                allJobs,
+        ReedJobSearchResponse response = new ReedJobSearchResponse(
+                pageJobs,
                 resultsByTargetRole,
-                allJobs.size(),
-                DEFAULT_PAGE,
-                RESPONSE_PAGE_SIZE,
+                totalResults,
+                page,
+                pageSize,
                 providerResults,
                 searchStatus,
                 matchingStatus);
+        response.setSort(sort);
+        return response;
     }
 
     private ProviderSearchResult cachedProviderSearch(
@@ -283,9 +321,17 @@ public class JobSearchService {
                 .noneMatch(role -> role != null && !role.isBlank())) {
             throw new IllegalArgumentException("Missing required field: aspirations.desiredRoles");
         }
+        if (targetRoles(request).size() > MAX_TARGET_ROLES) {
+            throw new IllegalArgumentException(
+                    "aspirations.desiredRoles cannot contain more than "
+                            + MAX_TARGET_ROLES + " distinct roles");
+        }
         if (aspirations.getLocations() == null || aspirations.getLocations().isEmpty()) {
             throw new IllegalArgumentException("Missing required field: aspirations.locations");
         }
+        page(request);
+        pageSize(request);
+        sort(request);
         WorkPreferences workPreferences = request.getWorkPreferences();
         if (workPreferences != null && workPreferences.getEmploymentType() != null) {
             for (String employmentType : workPreferences.getEmploymentType()) {
@@ -320,6 +366,112 @@ public class JobSearchService {
                 .map(String::trim)
                 .distinct()
                 .toList();
+    }
+
+    private int page(JobSearchRequest request) {
+        int page = request.getPage() == null ? DEFAULT_PAGE : request.getPage();
+        if (page < 1 || page > MAX_PAGE) {
+            throw new IllegalArgumentException(
+                    "page must be between 1 and " + MAX_PAGE);
+        }
+        return page;
+    }
+
+    private int pageSize(JobSearchRequest request) {
+        int pageSize = request.getPageSize() == null
+                ? DEFAULT_PAGE_SIZE
+                : request.getPageSize();
+        if (pageSize < 1 || pageSize > MAX_PAGE_SIZE) {
+            throw new IllegalArgumentException(
+                    "pageSize must be between 1 and " + MAX_PAGE_SIZE);
+        }
+        return pageSize;
+    }
+
+    private String sort(JobSearchRequest request) {
+        String value = request.getSort() == null || request.getSort().isBlank()
+                ? DEFAULT_SORT
+                : request.getSort().trim().toUpperCase(Locale.ROOT);
+        if (!SUPPORTED_SORTS.contains(value)) {
+            throw new IllegalArgumentException(
+                    "sort must be one of " + String.join(", ", SUPPORTED_SORTS.stream()
+                            .sorted()
+                            .toList()));
+        }
+        return value;
+    }
+
+    private Comparator<RoleJob> resultOrder(String sort) {
+        Comparator<Job> primary = switch (sort) {
+            case "CLOSEST" -> Comparator.comparing(
+                    Job::getDistanceMiles,
+                    Comparator.nullsLast(Comparator.naturalOrder()));
+            case "HIGHEST_SALARY" -> Comparator.comparing(
+                    this::annualSalaryMidpoint,
+                    Comparator.nullsLast(Comparator.reverseOrder()));
+            case "NEWEST_POSTED" -> Comparator.comparing(
+                    Job::getPostedAtUtc,
+                    Comparator.nullsLast(Comparator.reverseOrder()));
+            case "OLDEST_POSTED" -> Comparator.comparing(
+                    Job::getPostedAtUtc,
+                    Comparator.nullsLast(Comparator.naturalOrder()));
+            case "COMPANY_AZ" -> Comparator.comparing(
+                    this::companyName,
+                    Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
+            case "JOB_TITLE_AZ" -> Comparator.comparing(
+                    this::jobTitle,
+                    Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
+            default -> Comparator
+                    .comparing(
+                            Job::getMatchScore,
+                            Comparator.nullsLast(Comparator.reverseOrder()))
+                    .thenComparing(
+                            Job::getPostedAtUtc,
+                            Comparator.nullsLast(Comparator.reverseOrder()));
+        };
+        return Comparator.comparing(RoleJob::job, primary)
+                .thenComparing(
+                        RoleJob::targetRole,
+                        String.CASE_INSENSITIVE_ORDER)
+                .thenComparing(
+                        row -> stableJobKey(row.job()),
+                        String.CASE_INSENSITIVE_ORDER);
+    }
+
+    private Double annualSalaryMidpoint(Job job) {
+        return job.getSalary() == null
+                ? null
+                : job.getSalary().getNormalisedAnnualMidpoint();
+    }
+
+    private String companyName(Job job) {
+        return firstNonBlank(job.getCompanyName(), job.getCompany());
+    }
+
+    private String jobTitle(Job job) {
+        return firstNonBlank(job.getTitle(), job.getJobTitle());
+    }
+
+    private String firstNonBlank(String first, String second) {
+        if (first != null && !first.isBlank()) {
+            return first.trim();
+        }
+        return second == null || second.isBlank() ? null : second.trim();
+    }
+
+    private String stableJobKey(Job job) {
+        return String.join("|",
+                safeKey(job.getPrimarySource()),
+                safeKey(job.getCanonicalJobId()),
+                safeKey(job.getExternalJobId()),
+                safeKey(job.getId()),
+                safeKey(jobTitle(job)),
+                safeKey(companyName(job)),
+                safeKey(job.getLocation()));
+    }
+
+    private String safeKey(String value) {
+        return value == null ? "" : value.trim();
     }
 
     private Set<String> selectedProviders(JobSearchRequest request) {
@@ -554,6 +706,9 @@ public class JobSearchService {
         target.setConfidence(source.getConfidence());
         target.setRuleVersion(source.getRuleVersion());
         return target;
+    }
+
+    private record RoleJob(String targetRole, Job job) {
     }
 
     private record ProviderSearchResult(

@@ -109,6 +109,31 @@ class ProviderSearchCoordinatorTest {
     }
 
     @Test
+    void capsEachProviderWindowWhilePreservingItsRawResultCount() {
+        executor = executor(1, 1);
+        JobProviderAdapter reed = adapter(
+                "REED",
+                () -> java.util.stream.IntStream.range(0, 125)
+                        .mapToObj(index -> job("reed-" + index, "REED"))
+                        .toList());
+        ProviderSearchCoordinator coordinator = coordinator(
+                List.of(reed), 500, 300);
+
+        var result = coordinator.search(
+                "user-1", criteria(), Set.of(), deadlineAfter(500));
+
+        assertThat(result.jobs()).hasSize(100);
+        assertThat(result.jobs().get(0).getId()).isEqualTo("reed-0");
+        assertThat(result.jobs().get(99).getId()).isEqualTo("reed-99");
+        assertThat(result.providerResults())
+                .singleElement()
+                .satisfies(providerResult -> {
+                    assertThat(providerResult.getStatus()).isEqualTo("SUCCESS");
+                    assertThat(providerResult.getRawResultCount()).isEqualTo(125);
+                });
+    }
+
+    @Test
     void cancelsSlowProviderWithoutDiscardingHealthyResults() throws Exception {
         executor = executor(2, 2);
         CountDownLatch interrupted = new CountDownLatch(1);

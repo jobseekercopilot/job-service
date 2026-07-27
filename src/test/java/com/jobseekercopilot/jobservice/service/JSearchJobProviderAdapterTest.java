@@ -1,7 +1,10 @@
 package com.jobseekercopilot.jobservice.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.jobseekercopilot.generated.jsearchgateway.api.JSearchJobsApi;
@@ -32,7 +35,8 @@ class JSearchJobProviderAdapterTest {
         JSearchJobProviderAdapter adapter = new JSearchJobProviderAdapter(
                 jSearchJobsApi,
                 new PublisherNormalisationService(),
-                true);
+                true,
+                2);
 
         adapter.search("user-1", criteria(List.of("UB3 4QZ", "Hillingdon, London")));
 
@@ -75,7 +79,8 @@ class JSearchJobProviderAdapterTest {
         JSearchJobProviderAdapter adapter = new JSearchJobProviderAdapter(
                 jSearchJobsApi,
                 new PublisherNormalisationService(),
-                true);
+                true,
+                2);
 
         List<Job> jobs = adapter.search("user-1", criteria(List.of("London")));
 
@@ -121,6 +126,82 @@ class JSearchJobProviderAdapterTest {
                                 .isEqualTo("REMOTE");
                     });
         });
+    }
+
+    @Test
+    void followsOneContinuationCursorWithinTheHardPageBudget() {
+        JSearchJobsApi jSearchJobsApi = mock(JSearchJobsApi.class);
+        JSearchSearchResponse first = response(
+                providerJob("first"),
+                " next-cursor ");
+        JSearchSearchResponse second = response(
+                providerJob("second"),
+                "ignored-third-page");
+        ArgumentCaptor<JSearchSearchRequest> requests =
+                ArgumentCaptor.forClass(JSearchSearchRequest.class);
+        when(jSearchJobsApi.search(requests.capture()))
+                .thenReturn(first, second);
+
+        JSearchJobProviderAdapter adapter = new JSearchJobProviderAdapter(
+                jSearchJobsApi,
+                new PublisherNormalisationService(),
+                true,
+                20);
+
+        List<Job> jobs = adapter.search(
+                "user-1",
+                criteria(List.of("London")));
+
+        assertThat(jobs)
+                .extracting(Job::getExternalJobId)
+                .containsExactly("first", "second");
+        assertThat(requests.getAllValues())
+                .extracting(JSearchSearchRequest::getCursor)
+                .containsExactly(null, "next-cursor");
+        verify(jSearchJobsApi, times(2)).search(any());
+    }
+
+    @Test
+    void stopsWhenAProviderRepeatsItsContinuationCursor() {
+        JSearchJobsApi jSearchJobsApi = mock(JSearchJobsApi.class);
+        when(jSearchJobsApi.search(any()))
+                .thenReturn(
+                        response(providerJob("first"), "same-cursor"),
+                        response(providerJob("second"), "same-cursor"));
+
+        JSearchJobProviderAdapter adapter = new JSearchJobProviderAdapter(
+                jSearchJobsApi,
+                new PublisherNormalisationService(),
+                true,
+                2);
+
+        List<Job> jobs = adapter.search(
+                "user-1",
+                criteria(List.of("London")));
+
+        assertThat(jobs)
+                .extracting(Job::getExternalJobId)
+                .containsExactly("first", "second");
+        verify(jSearchJobsApi, times(2)).search(any());
+    }
+
+    private JSearchSearchResponse response(
+            JSearchJob job,
+            String cursor) {
+        JSearchSearchResponse response = new JSearchSearchResponse();
+        response.setJobs(List.of(job));
+        response.setCursor(cursor);
+        return response;
+    }
+
+    private JSearchJob providerJob(String id) {
+        JSearchJob job = new JSearchJob();
+        job.setExternalJobId(id);
+        job.setTitle("Software Developer " + id);
+        job.setCompanyName("Example Ltd");
+        job.setLocationDisplayName("London");
+        job.setPrimaryApplyUrl("https://example.test/" + id);
+        return job;
     }
 
     private JobSearchCriteria criteria(List<String> locations) {

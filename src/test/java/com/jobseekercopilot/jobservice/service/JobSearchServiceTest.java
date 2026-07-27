@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.jobseekercopilot.jobservice.config.JobSearchResilienceProperties;
@@ -16,11 +17,14 @@ import com.jobseekercopilot.jobservice.model.dto.Aspirations;
 import com.jobseekercopilot.jobservice.model.dto.CanonicalLocation;
 import com.jobseekercopilot.jobservice.model.dto.HomeLocation;
 import com.jobseekercopilot.jobservice.model.dto.Job;
+import com.jobseekercopilot.jobservice.model.dto.JobSalary;
 import com.jobseekercopilot.jobservice.model.dto.JobSearchRequest;
 import com.jobseekercopilot.jobservice.model.dto.JobSkill;
 import com.jobseekercopilot.jobservice.model.dto.JobSkillType;
 import com.jobseekercopilot.jobservice.model.dto.ProviderResultStatus;
+import com.jobseekercopilot.jobservice.model.dto.ReedJobSearchResponse;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -273,6 +277,202 @@ class JobSearchServiceTest {
 
         verify(providerSearchCoordinator, times(2))
                 .search(any(), any(JobSearchCriteria.class), anySet(), anyLong());
+    }
+
+    @Test
+    void defaultsToAStableBoundedFirstPageWithTruthfulMetadata() {
+        List<Job> jobs = new ArrayList<>();
+        for (int index = 0; index < 12; index++) {
+            Job job = job(
+                    "job-" + index,
+                    "Role " + index,
+                    index % 2 == 0 ? "REED" : "ADZUNA");
+            job.setMatchScore((double) index);
+            jobs.add(job);
+        }
+        when(providerSearchCoordinator.search(
+                eq("user-1"), any(JobSearchCriteria.class), anySet(), anyLong()))
+                .thenReturn(fanOut(
+                        jobs,
+                        List.of(status("REED", "SUCCESS", 12)),
+                        true,
+                        true,
+                        true));
+        passThroughMatching();
+
+        var result = service.searchJobs("user-1", request("developer"));
+
+        assertThat(result.getJobs())
+                .extracting(Job::getTitle)
+                .containsExactly(
+                        "Role 11", "Role 10", "Role 9", "Role 8", "Role 7",
+                        "Role 6", "Role 5", "Role 4", "Role 3", "Role 2");
+        assertThat(result.getTotalResults()).isEqualTo(12);
+        assertThat(result.getPage()).isEqualTo(1);
+        assertThat(result.getPageSize()).isEqualTo(10);
+        assertThat(result.getTotalPages()).isEqualTo(2);
+        assertThat(result.getSort()).isEqualTo("MOST_RELEVANT");
+        assertThat(result.getResultsByTargetRole())
+                .singleElement()
+                .satisfies(group -> {
+                    assertThat(group.getTargetRole()).isEqualTo("developer");
+                    assertThat(group.getJobs()).hasSize(10);
+                });
+    }
+
+    @Test
+    void sortsKnownSalaryValuesHighestFirstAndPlacesMissingValuesLast() {
+        Job lower = job("lower", "Lower salary", "REED");
+        lower.setSalary(new JobSalary(40_000, 50_000, "GBP", "YEAR"));
+        Job missing = job("missing", "Salary not supplied", "ADZUNA");
+        Job higher = job("higher", "Higher salary", "JSEARCH");
+        higher.setSalary(new JobSalary(70_000, 90_000, "GBP", "YEAR"));
+        when(providerSearchCoordinator.search(
+                eq("user-1"), any(JobSearchCriteria.class), anySet(), anyLong()))
+                .thenReturn(fanOut(
+                        List.of(lower, missing, higher),
+                        List.of(status("REED", "SUCCESS", 3)),
+                        true,
+                        true,
+                        true));
+        passThroughMatching();
+        JobSearchRequest request = request("developer");
+        request.setSort("HIGHEST_SALARY");
+
+        var result = service.searchJobs("user-1", request);
+
+        assertThat(result.getJobs())
+                .extracting(Job::getTitle)
+                .containsExactly(
+                        "Higher salary",
+                        "Lower salary",
+                        "Salary not supplied");
+    }
+
+    @Test
+    void pagesTheDeterministicAggregateAndKeepsRoleGroupsPageScoped() {
+        when(providerSearchCoordinator.search(
+                eq("user-1"), any(JobSearchCriteria.class), anySet(), anyLong()))
+                .thenReturn(
+                        fanOut(
+                                List.of(
+                                        job("developer-b", "B role", "REED"),
+                                        job("developer-d", "D role", "REED")),
+                                List.of(status("REED", "SUCCESS", 2)),
+                                true,
+                                true,
+                                true),
+                        fanOut(
+                                List.of(
+                                        job("tester-a", "A role", "ADZUNA"),
+                                        job("tester-c", "C role", "ADZUNA")),
+                                List.of(status("ADZUNA", "SUCCESS", 2)),
+                                true,
+                                true,
+                                true));
+        passThroughMatching();
+        JobSearchRequest request = request("developer", "tester");
+        request.setPage(2);
+        request.setPageSize(2);
+        request.setSort("job_title_az");
+
+        var result = service.searchJobs("user-1", request);
+
+        assertThat(result.getJobs())
+                .extracting(Job::getTitle)
+                .containsExactly("C role", "D role");
+        assertThat(result.getTotalResults()).isEqualTo(4);
+        assertThat(result.getPage()).isEqualTo(2);
+        assertThat(result.getPageSize()).isEqualTo(2);
+        assertThat(result.getTotalPages()).isEqualTo(2);
+        assertThat(result.getSort()).isEqualTo("JOB_TITLE_AZ");
+        assertThat(result.getResultsByTargetRole())
+                .extracting(ReedJobSearchResponse.TargetRoleJobResults::getTargetRole)
+                .containsExactly("developer", "tester");
+        assertThat(result.getResultsByTargetRole().get(0).getJobs())
+                .extracting(Job::getTitle)
+                .containsExactly("D role");
+        assertThat(result.getResultsByTargetRole().get(1).getJobs())
+                .extracting(Job::getTitle)
+                .containsExactly("C role");
+    }
+
+    @Test
+    void returnsAnEmptyPageWithoutChangingAggregateTotals() {
+        when(providerSearchCoordinator.search(
+                eq("user-1"), any(JobSearchCriteria.class), anySet(), anyLong()))
+                .thenReturn(fanOut(
+                        List.of(job("only-job", "Only role", "REED")),
+                        List.of(status("REED", "SUCCESS", 1)),
+                        true,
+                        true,
+                        true));
+        passThroughMatching();
+        JobSearchRequest request = request("developer");
+        request.setPage(3);
+        request.setPageSize(10);
+
+        var result = service.searchJobs("user-1", request);
+
+        assertThat(result.getJobs()).isEmpty();
+        assertThat(result.getTotalResults()).isEqualTo(1);
+        assertThat(result.getTotalPages()).isEqualTo(1);
+        assertThat(result.getResultsByTargetRole())
+                .singleElement()
+                .satisfies(group -> assertThat(group.getJobs()).isEmpty());
+    }
+
+    @Test
+    void rejectsInvalidPagingAndSortBeforeCallingAProvider() {
+        JobSearchRequest zeroPage = request("developer");
+        zeroPage.setPage(0);
+        JobSearchRequest excessivePage = request("developer");
+        excessivePage.setPage(101);
+        JobSearchRequest zeroSize = request("developer");
+        zeroSize.setPageSize(0);
+        JobSearchRequest excessiveSize = request("developer");
+        excessiveSize.setPageSize(51);
+        JobSearchRequest unsupportedSort = request("developer");
+        unsupportedSort.setSort("RANDOM");
+
+        assertThatThrownBy(() -> service.searchJobs("user-1", zeroPage))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("page must be between 1 and 100");
+        assertThatThrownBy(() -> service.searchJobs("user-1", excessivePage))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("page must be between 1 and 100");
+        assertThatThrownBy(() -> service.searchJobs("user-1", zeroSize))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("pageSize must be between 1 and 50");
+        assertThatThrownBy(() -> service.searchJobs("user-1", excessiveSize))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("pageSize must be between 1 and 50");
+        assertThatThrownBy(() -> service.searchJobs("user-1", unsupportedSort))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageStartingWith("sort must be one of");
+        verifyNoInteractions(providerSearchCoordinator);
+    }
+
+    @Test
+    void rejectsMoreThanTenDistinctRolesBeforeCallingAProvider() {
+        JobSearchRequest request = request(
+                "role-1", "role-2", "role-3", "role-4", "role-5", "role-6",
+                "role-7", "role-8", "role-9", "role-10", "role-11");
+
+        assertThatThrownBy(() -> service.searchJobs("user-1", request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage(
+                        "aspirations.desiredRoles cannot contain more than 10 distinct roles");
+        verifyNoInteractions(providerSearchCoordinator);
+    }
+
+    private void passThroughMatching() {
+        when(matchingEnricher.enrich(any(), any(), anyLong()))
+                .thenAnswer(invocation ->
+                        new OptionalJobMatchingEnricher.MatchingOutcome(
+                                invocation.getArgument(1),
+                                "COMPLETE",
+                                false));
     }
 
     private ProviderSearchCoordinator.ProviderFanOutResult fanOut(

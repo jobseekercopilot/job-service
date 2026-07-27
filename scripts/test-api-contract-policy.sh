@@ -9,7 +9,7 @@ trap 'rm -rf "$temporary_root"' EXIT INT TERM
 "$script_dir/verify-api-contract.sh" "$source_contract" >/dev/null
 
 stale_version="$temporary_root/stale-canonical-version.yaml"
-sed 's/^  version: 2\.0\.0$/  version: 1.2.0/' \
+sed 's/^  version: 2\.1\.0$/  version: 2.0.0/' \
     "$source_contract" > "$stale_version"
 if "$script_dir/verify-api-contract.sh" "$stale_version" >/dev/null 2>&1; then
     echo "producer contract policy test: stale canonical version was accepted" >&2
@@ -29,6 +29,22 @@ sed '/^        selectedProviders:$/,/^          type: array$/d' \
     "$source_contract" > "$missing_providers"
 if "$script_dir/verify-api-contract.sh" "$missing_providers" >/dev/null 2>&1; then
     echo "producer contract policy test: missing selectedProviders was accepted" >&2
+    exit 1
+fi
+
+missing_page_size="$temporary_root/missing-page-size.yaml"
+sed '/^        pageSize:$/,/^          type: integer$/d' \
+    "$source_contract" > "$missing_page_size"
+if "$script_dir/verify-api-contract.sh" "$missing_page_size" >/dev/null 2>&1; then
+    echo "producer contract policy test: missing pageSize was accepted" >&2
+    exit 1
+fi
+
+missing_sort="$temporary_root/missing-sort.yaml"
+sed '/^        sort:$/,/^          type: string$/d' \
+    "$source_contract" > "$missing_sort"
+if "$script_dir/verify-api-contract.sh" "$missing_sort" >/dev/null 2>&1; then
+    echo "producer contract policy test: missing sort contract was accepted" >&2
     exit 1
 fi
 

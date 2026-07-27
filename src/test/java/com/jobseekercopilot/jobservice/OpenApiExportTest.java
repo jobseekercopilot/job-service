@@ -40,7 +40,10 @@ class OpenApiExportTest {
 
         assertTrue(contract.contains("/api/jobs/saved"));
         assertTrue(contract.contains("SavedJobResponse"));
-        assertTrue(contract.contains("version: 2.0.0"));
+        assertTrue(contract.contains("version: 2.1.0"));
+        assertTrue(contract.contains("pageSize:"));
+        assertTrue(contract.contains("totalPages:"));
+        assertTrue(contract.contains("JOB_TITLE_AZ"));
         Files.createDirectories(Path.of("target"));
         Files.writeString(Path.of("target/openapi.yaml"), contract);
     }

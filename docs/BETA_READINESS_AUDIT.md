@@ -36,8 +36,12 @@ attempts optional Job Matching enrichment before returning.
   cancellable under a shared request deadline; saturation fails fast instead of
   growing an unbounded queue. Provider-specific retry, rate-limit and circuit
   policy remains in the existing gateway-owned resilience issues.
-- **P1 paging:** `page` and `pageSize` are reported but all results are returned;
-  sorting, limits and cursor semantics are client-side or absent.
+- **Completed SEARCH-08 producer paging boundary:** API 2.1 validates page,
+  page size, sort and role limits before fan-out, applies deterministic global
+  sorting and slicing, reports truthful bounded-window totals, limits accepted
+  provider and aggregate results, and follows JSearch continuation cursors
+  within a hard two-call budget. Job Finder contract rollout and end-to-end UI
+  evidence remain in their consumer-owned issues.
 - **P1 cache policy:** cache keys now include provider selection, salary and
   employment filters; partial provider results are not cached; deep provider
   snapshots prevent user-specific application state crossing users. The cache
@@ -63,11 +67,10 @@ attempts optional Job Matching enrichment before returning.
 
 ## Target orchestration
 
-Return deterministic canonical results plus provider status and correlation
-metadata when at least one provider succeeds. Continue with tracked work to
-enforce server-side bounds, sorting and pagination, complete canonical mapping,
-and persist saved jobs against a stable canonical identifier and a
-provider-safe snapshot/provenance model.
+Return deterministic, bounded and paged canonical results plus provider status
+and correlation metadata when at least one provider succeeds. Continue with
+tracked work to complete canonical mapping and roll the reviewed paging
+contract through Job Finder and the browser.
 
 ## Evidence required to close
 

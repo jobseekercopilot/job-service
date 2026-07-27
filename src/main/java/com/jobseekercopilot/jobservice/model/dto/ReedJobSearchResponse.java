@@ -6,9 +6,26 @@ import java.util.List;
 public class ReedJobSearchResponse {
     private List<Job> jobs;
     private List<TargetRoleJobResults> resultsByTargetRole;
+    @Schema(description = "Number of role/job rows in the bounded aggregate window before paging.")
     private Integer totalResults;
+    @Schema(description = "One-based page returned.", minimum = "1", maximum = "100")
     private Integer page;
+    @Schema(description = "Maximum jobs returned on this page.", minimum = "1", maximum = "50")
     private Integer pageSize;
+    @Schema(description = "Pages available in the bounded aggregate window.")
+    private Integer totalPages;
+    @Schema(
+            allowableValues = {
+                    "MOST_RELEVANT",
+                    "CLOSEST",
+                    "HIGHEST_SALARY",
+                    "NEWEST_POSTED",
+                    "OLDEST_POSTED",
+                    "COMPANY_AZ",
+                    "JOB_TITLE_AZ"
+            }
+    )
+    private String sort;
     private List<ProviderResultStatus> providerResults;
     @Schema(allowableValues = {"COMPLETE", "PARTIAL"})
     private String searchStatus;
@@ -29,15 +46,15 @@ public class ReedJobSearchResponse {
         this.totalResults = totalResults;
         this.page = page;
         this.pageSize = pageSize;
+        this.totalPages = totalResults == null || pageSize == null || pageSize <= 0
+                ? null
+                : (int) Math.ceil((double) totalResults / pageSize);
     }
 
     public ReedJobSearchResponse(List<Job> jobs, List<TargetRoleJobResults> resultsByTargetRole,
                                  Integer totalResults, Integer page, Integer pageSize) {
-        this.jobs = jobs;
+        this(jobs, totalResults, page, pageSize);
         this.resultsByTargetRole = resultsByTargetRole;
-        this.totalResults = totalResults;
-        this.page = page;
-        this.pageSize = pageSize;
     }
 
     public ReedJobSearchResponse(List<Job> jobs, List<TargetRoleJobResults> resultsByTargetRole,
@@ -89,6 +106,22 @@ public class ReedJobSearchResponse {
 
     public void setPageSize(Integer pageSize) {
         this.pageSize = pageSize;
+    }
+
+    public Integer getTotalPages() {
+        return totalPages;
+    }
+
+    public void setTotalPages(Integer totalPages) {
+        this.totalPages = totalPages;
+    }
+
+    public String getSort() {
+        return sort;
+    }
+
+    public void setSort(String sort) {
+        this.sort = sort;
     }
 
     public List<ProviderResultStatus> getProviderResults() {

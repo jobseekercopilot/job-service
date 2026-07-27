@@ -57,6 +57,8 @@ providers:
     results-per-page: ${ADZUNA_RESULTS_PER_PAGE:50}
   jsearch:
     enabled: ${JSEARCH_ENABLED:true}
+    # Cursor traversal is deliberately capped to prevent unbounded provider calls.
+    max-cursor-pages: ${JSEARCH_MAX_CURSOR_PAGES:2}
 
 job-search:
   default-distance: 25
