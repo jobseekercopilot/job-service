@@ -6,11 +6,17 @@ import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import java.time.Clock;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class OpenApiConfig {
+
+    @Bean
+    public Clock utcClock() {
+        return Clock.systemUTC();
+    }
 
     @Bean
     public OpenAPI jobServiceOpenAPI() {
@@ -29,10 +35,10 @@ public class OpenApiConfig {
                                 The service calls provider gateways, maps and normalises results,
                                 deduplicates sources, and reports partial provider failures.
 
-                                Saved-job persistence is planned but is not implemented in this
-                                migration baseline.
+                                Saved jobs retain owner-scoped immutable canonical/source
+                                snapshots for later generation and application workflows.
                                 """)
-                        .version("1.0.0")
+                        .version("2.0.0")
                         .contact(new Contact()
                                 .name("Jobseeker Copilot"))
                         .license(new License()

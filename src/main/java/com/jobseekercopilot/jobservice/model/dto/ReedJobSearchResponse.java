@@ -1,5 +1,6 @@
 package com.jobseekercopilot.jobservice.model.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
 public class ReedJobSearchResponse {
@@ -9,7 +10,15 @@ public class ReedJobSearchResponse {
     private Integer page;
     private Integer pageSize;
     private List<ProviderResultStatus> providerResults;
+    @Schema(allowableValues = {"COMPLETE", "PARTIAL"})
     private String searchStatus;
+    @Schema(allowableValues = {
+            "COMPLETE",
+            "NOT_RUN",
+            "UNAVAILABLE",
+            "TIMED_OUT",
+            "SATURATED"
+    })
     private String matchingStatus;
 
     public ReedJobSearchResponse() {

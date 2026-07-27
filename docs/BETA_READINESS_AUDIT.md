@@ -20,8 +20,13 @@ attempts optional Job Matching enrichment before returning.
   provider categories describe degradation, and all-provider failure remains a
   safe HTTP 503. Optional Job Matching timeout, saturation or failure preserves
   provider jobs and is reported as a partial response.
-- **P0 product ownership:** no database, repository, entity, saved-job API, or
-  save/unsave persistence exists in Job Service.
+- **Completed SEARCH-11 persistence boundary:** PostgreSQL/Flyway owns
+  owner-scoped saved-job identities and immutable canonical/source snapshots.
+  Replays are idempotent, source changes append versions, unsave is soft and
+  repeatable, cross-user reads are indistinguishable from missing records, and
+  generation consumers can retrieve a server-owned snapshot by `savedJobId`.
+  Production startup fails closed without verified TLS, least privilege,
+  migration, encryption-at-rest and encrypted-backup declarations.
 - **Identity rollout in progress:** Job Service now independently verifies the
   RS256 access token and binds search identity to `sub`. End-to-end closure
   still requires Job Finder to consume the revised contract and forward the
@@ -69,7 +74,8 @@ provider-safe snapshot/provenance model.
 Clean-clone build/container evidence; source-owned contracts and compatibility
 tests; concurrency/deadline/load tests; deterministic mapping, normalisation,
 deduplication and failure matrices; persistence migration and cross-user
-authorization tests; safe-link tests; cache policy approval against provider
-terms; and production-like E2E proof through Job Finder and the client.
+authorization tests; production PostgreSQL restart/restore evidence; safe-link
+tests; cache policy approval against provider terms; and production-like E2E
+proof through Job Finder and the client.
 
 This audit is not a beta-readiness approval.
