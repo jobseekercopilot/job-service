@@ -14,7 +14,9 @@ provider snapshots are isolated from user-specific application state.
 Canonical Job schema 2.0 adds lossless raw evidence, explicit unknown
 taxonomies, provenance, decimal salary fields, timezone-safe instants, skills
 and experience without removing legacy fields.
-Saved-job persistence and other tracked beta work are not implemented. See
+Owner-scoped saved jobs now use PostgreSQL/Flyway and retain immutable,
+digest-addressed canonical snapshots through replay, update, unsave and
+reactivation. Other tracked beta work remains. See
 [`docs/BETA_READINESS_AUDIT.md`](docs/BETA_READINESS_AUDIT.md).
 
 ## Trusted identity boundary
@@ -35,6 +37,18 @@ forward an unsigned subject header. See
 [`docs/SECURITY_BOUNDARY.md`](docs/SECURITY_BOUNDARY.md) for the claim,
 rotation and local-test contract.
 
+The same verified JWT subject owns every saved job. The saved-job API is:
+
+- `POST /api/jobs/saved` to create, replay, update or reactivate a canonical
+  snapshot;
+- `GET /api/jobs/saved` to list the owner's active saved jobs;
+- `GET /api/jobs/saved/{savedJobId}` to retrieve the current immutable
+  snapshot; and
+- `DELETE /api/jobs/saved/{savedJobId}` to idempotently unsave it.
+
+Missing, unsaved and other-user identifiers have the same not-found response.
+The generated OpenAPI contract records the status codes and response fields.
+
 The Infrastructure
 [Job Search architecture ADR](https://github.com/jobseekercopilot/infrastructure/blob/develop/docs/adr/0001-job-search-architecture-and-ownership.md)
 is the approved ownership map for canonical jobs, provider orchestration,
@@ -49,6 +63,12 @@ mvn -B clean verify
 docker build -t local/job-service .
 ```
 
+Persistence integration tests use H2 only as an isolated migration and
+repository check. Release evidence must also start the service against a real
+PostgreSQL instance, restart it without losing data, and exercise the backup
+restore procedure. See
+[`docs/SAVED_JOB_PERSISTENCE.md`](docs/SAVED_JOB_PERSISTENCE.md).
+
 Reed, Adzuna, and JSearch clients are generated during the Maven build from
 checksum-protected producer contracts and immutable `.SOURCE` records under
 `src/main/openapi`. Generated sources and binaries remain under `target/` and
@@ -61,6 +81,22 @@ See [`docs/PROVIDER_RESILIENCE.md`](docs/PROVIDER_RESILIENCE.md) for timeout
 defaults, partial-result semantics, failure categories and operator actions.
 See [`docs/CANONICAL_JOB_MODEL.md`](docs/CANONICAL_JOB_MODEL.md) for the field
 dictionary, provider matrix, safe-link rule and compatibility plan.
+
+Runtime database configuration is supplied using:
+
+- `JOB_SERVICE_DATABASE_URL`
+- `JOB_SERVICE_DATABASE_USERNAME`
+- `JOB_SERVICE_DATABASE_PASSWORD`
+- `JOB_SERVICE_DATABASE_SSL_MODE=verify-full`
+- `JOB_SERVICE_DATABASE_ENCRYPTION_AT_REST_ENABLED=true`
+- `JOB_SERVICE_DATABASE_ENCRYPTION_KEY_REFERENCE`
+- `JOB_SERVICE_DATABASE_BACKUP_ENCRYPTION_ENABLED=true`
+- `JOB_SERVICE_DATABASE_BACKUP_KEY_REFERENCE`
+
+Startup fails closed when PostgreSQL, verified TLS, a dedicated non-root role,
+reviewed Flyway migration settings, encryption declarations, or backup
+declarations are absent. The production safety check may be disabled only in an
+isolated local/test environment.
 
 `develop` is the integration/default branch for beta hardening. See
 `CONTRIBUTING.md`, `SECURITY.md`, and `LICENSE`.

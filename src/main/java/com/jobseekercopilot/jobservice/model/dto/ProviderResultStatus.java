@@ -1,7 +1,19 @@
 package com.jobseekercopilot.jobservice.model.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 public class ProviderResultStatus {
     private String provider;
+    @Schema(allowableValues = {
+            "SUCCESS",
+            "DISABLED",
+            "UNAVAILABLE",
+            "TIMED_OUT",
+            "SATURATED",
+            "RATE_LIMITED",
+            "CONFIGURATION_ERROR",
+            "REJECTED"
+    })
     private String status;
     private int rawResultCount;
     private String errorMessage;

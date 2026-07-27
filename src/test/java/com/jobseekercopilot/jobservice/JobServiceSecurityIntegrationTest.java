@@ -15,7 +15,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.jobseekercopilot.jobservice.model.dto.ReedJobSearchResponse;
 import com.jobseekercopilot.jobservice.service.JobSearchService;
+import com.jobseekercopilot.jobservice.service.SavedJobService;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,6 +44,15 @@ class JobServiceSecurityIntegrationTest {
         registry.add("job-service.security.jwk-set-uri", JWKS::jwkSetUri);
         registry.add("job-service.security.issuer", () -> TestJwksServer.ISSUER);
         registry.add("job-service.security.audience", () -> TestJwksServer.AUDIENCE);
+        registry.add(
+                "job-service.database.production-safety-check",
+                () -> "false");
+        registry.add(
+                "spring.datasource.url",
+                () -> "jdbc:h2:mem:job_service_security;MODE=PostgreSQL;DB_CLOSE_DELAY=-1");
+        registry.add("spring.datasource.driver-class-name", () -> "org.h2.Driver");
+        registry.add("spring.datasource.username", () -> "sa");
+        registry.add("spring.datasource.password", () -> "");
     }
 
     @AfterAll
@@ -54,6 +65,9 @@ class JobServiceSecurityIntegrationTest {
 
     @MockBean
     private JobSearchService jobSearchService;
+
+    @MockBean
+    private SavedJobService savedJobService;
 
     @BeforeEach
     void response() {
@@ -71,6 +85,20 @@ class JobServiceSecurityIntegrationTest {
 
         verify(jobSearchService).searchJobs(eq("alice"), any());
         verify(jobSearchService, never()).searchJobs(eq("victim"), any());
+    }
+
+    @Test
+    void savedJobRoutesRequireTheSameVerifiedSubject() throws Exception {
+        UUID savedJobId = UUID.randomUUID();
+        mockMvc.perform(get("/api/jobs/saved/{savedJobId}", savedJobId)
+                        .header(
+                                HttpHeaders.AUTHORIZATION,
+                                "Bearer " + JWKS.activeToken("saved-owner"))
+                        .header("X-User-Id", "victim"))
+                .andExpect(status().isOk());
+
+        verify(savedJobService).get("saved-owner", savedJobId);
+        verify(savedJobService, never()).get("victim", savedJobId);
     }
 
     @Test

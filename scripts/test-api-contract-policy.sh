@@ -9,7 +9,7 @@ trap 'rm -rf "$temporary_root"' EXIT INT TERM
 "$script_dir/verify-api-contract.sh" "$source_contract" >/dev/null
 
 stale_version="$temporary_root/stale-canonical-version.yaml"
-sed 's/^  version: 1\.2\.0$/  version: 1.1.0/' \
+sed 's/^  version: 2\.0\.0$/  version: 1.2.0/' \
     "$source_contract" > "$stale_version"
 if "$script_dir/verify-api-contract.sh" "$stale_version" >/dev/null 2>&1; then
     echo "producer contract policy test: stale canonical version was accepted" >&2
@@ -113,6 +113,44 @@ awk '
 ' "$source_contract" > "$missing_unknown"
 if "$script_dir/verify-api-contract.sh" "$missing_unknown" >/dev/null 2>&1; then
     echo "producer contract policy test: workplace taxonomy without UNKNOWN was accepted" >&2
+    exit 1
+fi
+
+missing_saved_route="$temporary_root/missing-saved-route.yaml"
+sed '/^  \/api\/jobs\/saved:$/,/^  \/api\/jobs\/saved\/{savedJobId}:$/d' \
+    "$source_contract" > "$missing_saved_route"
+if "$script_dir/verify-api-contract.sh" "$missing_saved_route" >/dev/null 2>&1; then
+    echo "producer contract policy test: missing saved-job route was accepted" >&2
+    exit 1
+fi
+
+missing_saved_digest="$temporary_root/missing-saved-digest.yaml"
+awk '
+    $0 == "    SavedJobResponse:" { in_schema = 1 }
+    in_schema && $0 == "        contentSha256:" {
+        print "        removedContentSha256:"
+        next
+    }
+    $0 == "    SavedJobPageResponse:" { in_schema = 0 }
+    { print }
+' "$source_contract" > "$missing_saved_digest"
+if "$script_dir/verify-api-contract.sh" "$missing_saved_digest" >/dev/null 2>&1; then
+    echo "producer contract policy test: saved job without content digest was accepted" >&2
+    exit 1
+fi
+
+missing_source_state="$temporary_root/missing-source-state.yaml"
+awk '
+    $0 == "    SavedJobResponse:" { in_schema = 1 }
+    in_schema && $0 == "        sourceState:" {
+        print "        removedSourceState:"
+        next
+    }
+    $0 == "    SavedJobPageResponse:" { in_schema = 0 }
+    { print }
+' "$source_contract" > "$missing_source_state"
+if "$script_dir/verify-api-contract.sh" "$missing_source_state" >/dev/null 2>&1; then
+    echo "producer contract policy test: saved job without source state was accepted" >&2
     exit 1
 fi
 

@@ -67,10 +67,19 @@ budgets and operator guidance are documented in
 
 ## Canonical Job compatibility
 
-API version 1.2.0 publishes additive canonical Job schema version 2.0. It
+API version 2.0.0 publishes canonical Job schema version 2.0 and the
+owner-scoped saved-job resource. The canonical job model
 retains legacy aliases while adding raw and normalised values, explicit unknown
 taxonomies, decimal salary evidence, offset-aware timestamps, complete source
 records, skills, experience and field-level provenance.
+
+Saved-job responses are server-owned records. `savedJobId`, snapshot version,
+content digest, capture/retrieval timestamps and source state must never be
+accepted from a browser as authoritative input. Generation and Application
+Tracking consumers use `savedJobId` to retrieve the canonical snapshot from
+Job Service while forwarding the verified end-user Bearer token. The producer
+contract policy fails when saved routes, immutable snapshot identity/digest, or
+source-state fields disappear.
 
 Provider adapters may populate only evidence present in their pinned producer
 contract. Missing values remain absent or explicit `UNKNOWN`; Job Service does
@@ -104,3 +113,8 @@ inbound and Application Tracker consumer contracts are tracked by
 Rollback restores the last reviewed contract snapshot, provenance record, and
 compatible adapter change together. Generated output is then recreated from
 source; no binary rollback artefact is stored in Git.
+
+Database rollback is independent from API contract rollback. Flyway migrations
+are forward-only in production: restore the last encrypted backup into a new
+database, validate the schema and snapshot counts, then switch the application
+connection. Never run Flyway clean or mutate the schema with Hibernate.
