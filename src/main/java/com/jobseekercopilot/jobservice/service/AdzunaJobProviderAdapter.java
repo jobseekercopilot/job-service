@@ -116,7 +116,7 @@ public class AdzunaJobProviderAdapter implements JobProviderAdapter {
         reference.setListingUrl(safeSourceUrl);
         reference.setApplyUrl(safeSourceUrl);
         reference.setDirectApply(false);
-        reference.setProviderPostedAt(parseDateTime(source.getPostedAt()));
+        reference.setProviderPostedAt(job.getPostedAtUtc());
         reference.setProviderPostedAtRaw(source.getPostedAt());
         reference.setProviderPostedAtUtc(job.getPostedAtUtc());
         job.setSources(List.of(reference));

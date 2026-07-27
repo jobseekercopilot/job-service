@@ -118,7 +118,7 @@ public class ReedJobProviderAdapter implements JobProviderAdapter {
         sourceReference.setListingUrl(safeSourceUrl);
         sourceReference.setApplyUrl(safeSourceUrl);
         sourceReference.setDirectApply(false);
-        sourceReference.setProviderPostedAt(parseDateTime(source.getPostedDate()));
+        sourceReference.setProviderPostedAt(target.getPostedAtUtc());
         sourceReference.setProviderPostedAtRaw(source.getPostedDate());
         sourceReference.setProviderPostedAtUtc(target.getPostedAtUtc());
         target.setSources(List.of(sourceReference));

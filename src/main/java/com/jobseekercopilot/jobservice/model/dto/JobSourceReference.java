@@ -1,6 +1,5 @@
 package com.jobseekercopilot.jobservice.model.dto;
 
-import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 
 public class JobSourceReference {
@@ -13,7 +12,7 @@ public class JobSourceReference {
     private String listingUrl;
     private String applyUrl;
     private Boolean directApply;
-    private LocalDateTime providerPostedAt;
+    private OffsetDateTime providerPostedAt;
     private String providerPostedAtRaw;
     private OffsetDateTime providerPostedAtUtc;
     private String providerExpiresAtRaw;
@@ -96,11 +95,11 @@ public class JobSourceReference {
         this.directApply = directApply;
     }
 
-    public LocalDateTime getProviderPostedAt() {
+    public OffsetDateTime getProviderPostedAt() {
         return providerPostedAt;
     }
 
-    public void setProviderPostedAt(LocalDateTime providerPostedAt) {
+    public void setProviderPostedAt(OffsetDateTime providerPostedAt) {
         this.providerPostedAt = providerPostedAt;
     }
 
