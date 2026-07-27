@@ -219,7 +219,9 @@ public class JSearchJobProviderAdapter implements JobProviderAdapter {
         reference.setListingUrl(safeApplyUrl);
         reference.setApplyUrl(safeApplyUrl);
         reference.setDirectApply(direct);
-        reference.setProviderPostedAt(parseDateTime(source.getPostedAt()));
+        reference.setProviderPostedAt(
+                CanonicalJobMappingSupport.parseOffsetDateTime(
+                        source.getPostedAt()));
         reference.setProviderPostedAtRaw(source.getPostedAt());
         reference.setProviderPostedAtUtc(
                 CanonicalJobMappingSupport.parseOffsetDateTime(

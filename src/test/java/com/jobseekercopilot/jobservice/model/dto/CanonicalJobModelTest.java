@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Random;
 import org.junit.jupiter.api.Test;
@@ -95,6 +96,7 @@ class CanonicalJobModelTest {
         source.setSourceType(JobSourceType.EMPLOYER);
         source.setListingUrl("https://jobs.example.test/123");
         source.setApplyUrl("https://jobs.example.test/123/apply");
+        source.setProviderPostedAt(postedAt);
         source.setProviderPostedAtRaw(
                 "2026-07-24T09:00:00+01:00");
         source.setProviderPostedAtUtc(postedAt);
@@ -139,6 +141,9 @@ class CanonicalJobModelTest {
         assertThat(roundTripped.getCanonicalSchemaVersion())
                 .isEqualTo("2.0");
         assertThat(roundTripped.getPostedAtUtc()).isEqualTo(postedAt);
+        assertThat(roundTripped.getSources()).singleElement()
+                .extracting(JobSourceReference::getProviderPostedAt)
+                .isEqualTo(postedAt.withOffsetSameInstant(ZoneOffset.UTC));
         assertThat(roundTripped.getCanonicalLocation().getLatitude())
                 .isEqualByComparingTo("51.507351");
         assertThat(roundTripped.getSalary().getRawMinimum())

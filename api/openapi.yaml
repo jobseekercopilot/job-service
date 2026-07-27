@@ -693,7 +693,7 @@ components:
           type: boolean
         providerPostedAt:
           deprecated: true
-          description: Legacy timezone-less value retained for compatibility.
+          description: Legacy value retained for compatibility and normalised to an offset timestamp.
           format: date-time
           type: string
         providerPostedAtRaw:
