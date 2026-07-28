@@ -35,7 +35,12 @@ components:
         keyword: {type: string, maxLength: 200}
         location: {type: string, maxLength: 200}
         distanceMiles: {type: integer, minimum: 0, maximum: 100}
-        countryCode: {type: string, maxLength: 3}
+        countryCode:
+          type: string
+          maxLength: 6
+          pattern: "^GB(?:-(?:ENG|SCT|WLS))?$"
+          example: GB-ENG
+          description: NHS Jobs V1.07 location country code.
         contractTypes:
           type: array
           maxItems: 20

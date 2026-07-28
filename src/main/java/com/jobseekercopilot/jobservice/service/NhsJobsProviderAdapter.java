@@ -21,6 +21,7 @@ import org.springframework.stereotype.Component;
 public class NhsJobsProviderAdapter implements JobProviderAdapter {
     private static final String PROVIDER = "NHS_JOBS";
     private static final String PUBLISHER = "NHS Jobs";
+    private static final String DEFAULT_COUNTRY_CODE = "GB-ENG";
 
     private final DefaultApi nhsJobsApi;
     private final boolean enabled;
@@ -62,6 +63,9 @@ public class NhsJobsProviderAdapter implements JobProviderAdapter {
                 .keyword(criteria.getTargetRole())
                 .location(criteria.getLocation())
                 .distanceMiles(criteria.getDistanceMiles())
+                .countryCode(criteria.getLocation() == null
+                                || criteria.getLocation().isBlank()
+                        ? null : DEFAULT_COUNTRY_CODE)
                 .contractTypes(criteria.getEmploymentTypes())
                 .salaryFrom(criteria.getSalaryMin())
                 .salaryTo(criteria.getSalaryMax())

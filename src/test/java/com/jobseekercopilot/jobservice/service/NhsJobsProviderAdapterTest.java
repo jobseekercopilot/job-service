@@ -3,10 +3,12 @@ package com.jobseekercopilot.jobservice.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.jobseekercopilot.generated.nhsjobsgateway.api.DefaultApi;
 import com.jobseekercopilot.generated.nhsjobsgateway.model.CanonicalJob;
+import com.jobseekercopilot.generated.nhsjobsgateway.model.NhsJobsSearchRequest;
 import com.jobseekercopilot.generated.nhsjobsgateway.model.NhsJobsSearchResponse;
 import com.jobseekercopilot.generated.nhsjobsgateway.model.ProviderAttribution;
 import com.jobseekercopilot.jobservice.model.dto.CanonicalValueStatus;
@@ -16,6 +18,7 @@ import java.net.URI;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 class NhsJobsProviderAdapterTest {
 
@@ -67,6 +70,11 @@ class NhsJobsProviderAdapterTest {
         List<Job> jobs = adapter.search(
                 "user-1",
                 criteria("nurse", "Northshire"));
+        ArgumentCaptor<NhsJobsSearchRequest> request =
+                ArgumentCaptor.forClass(NhsJobsSearchRequest.class);
+        verify(api).searchNhsJobs(request.capture());
+
+        assertThat(request.getValue().getCountryCode()).isEqualTo("GB-ENG");
 
         assertThat(jobs).singleElement().satisfies(job -> {
             assertThat(job.getProvider()).isEqualTo("NHS_JOBS");
