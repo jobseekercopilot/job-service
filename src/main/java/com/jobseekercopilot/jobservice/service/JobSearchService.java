@@ -150,7 +150,7 @@ public class JobSearchService {
         }
 
         List<RoleJob> boundedJobs = aggregateJobs.stream()
-                .sorted(resultOrder(sort))
+                .sorted(resultOrder(sort, targetRoles))
                 .limit(MAX_AGGREGATE_RESULTS)
                 .toList();
         int totalResults = boundedJobs.size();
@@ -401,7 +401,9 @@ public class JobSearchService {
         return value;
     }
 
-    private Comparator<RoleJob> resultOrder(String sort) {
+    private Comparator<RoleJob> resultOrder(
+            String sort,
+            List<String> targetRoles) {
         Comparator<Job> primary = switch (sort) {
             case "CLOSEST" -> Comparator.comparing(
                     Job::getDistanceMiles,
@@ -429,13 +431,27 @@ public class JobSearchService {
                             Job::getPostedAtUtc,
                             Comparator.nullsLast(Comparator.reverseOrder()));
         };
-        return Comparator.comparing(RoleJob::job, primary)
+        Comparator<RoleJob> jobOrder =
+                Comparator.comparing(RoleJob::job, primary)
                 .thenComparing(
                         RoleJob::targetRole,
                         String.CASE_INSENSITIVE_ORDER)
                 .thenComparing(
                         row -> stableJobKey(row.job()),
                         String.CASE_INSENSITIVE_ORDER);
+        if (!DEFAULT_SORT.equals(sort)) {
+            return jobOrder;
+        }
+        Map<String, Integer> rolePriority = new LinkedHashMap<>();
+        for (int index = 0; index < targetRoles.size(); index++) {
+            rolePriority.putIfAbsent(targetRoles.get(index), index);
+        }
+        return Comparator
+                .comparingInt((RoleJob row) ->
+                        rolePriority.getOrDefault(
+                                row.targetRole(),
+                                Integer.MAX_VALUE))
+                .thenComparing(jobOrder);
     }
 
     private Double annualSalaryMidpoint(Job job) {

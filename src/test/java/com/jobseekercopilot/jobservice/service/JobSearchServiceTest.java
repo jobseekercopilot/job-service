@@ -380,6 +380,51 @@ class JobSearchServiceTest {
     }
 
     @Test
+    void defaultPagePrioritisesTheFirstClaimantTargetRole() {
+        Job primary = job(
+                "staff-nurse",
+                "Staff Nurse",
+                "NHS_JOBS");
+        primary.setMatchScore(0.25);
+        Job secondary = job(
+                "support-worker",
+                "Clinical Support Worker",
+                "REED");
+        secondary.setMatchScore(0.95);
+        when(providerSearchCoordinator.search(
+                eq("user-1"), any(JobSearchCriteria.class), anySet(), anyLong()))
+                .thenReturn(
+                        fanOut(
+                                List.of(primary),
+                                List.of(status("NHS_JOBS", "SUCCESS", 1)),
+                                true,
+                                true,
+                                true),
+                        fanOut(
+                                List.of(secondary),
+                                List.of(status("REED", "SUCCESS", 1)),
+                                true,
+                                true,
+                                true));
+        passThroughMatching();
+        JobSearchRequest request = request(
+                "Staff Nurse",
+                "Clinical Support Worker");
+        request.setPageSize(1);
+
+        var result = service.searchJobs("user-1", request);
+
+        assertThat(result.getJobs())
+                .extracting(Job::getId)
+                .containsExactly("staff-nurse");
+        assertThat(result.getResultsByTargetRole().get(0).getJobs())
+                .extracting(Job::getId)
+                .containsExactly("staff-nurse");
+        assertThat(result.getResultsByTargetRole().get(1).getJobs())
+                .isEmpty();
+    }
+
+    @Test
     void sortsKnownSalaryValuesHighestFirstAndPlacesMissingValuesLast() {
         Job lower = job("lower", "Lower salary", "REED");
         lower.setSalary(new JobSalary(40_000, 50_000, "GBP", "YEAR"));
