@@ -83,6 +83,65 @@ class JobSearchServiceTest {
     }
 
     @Test
+    void returnsCompleteSuccessfulResponseForNhsOnlySearch() {
+        Job nhsJob = job("nhs:C123", "Community Nurse", "NHS_JOBS");
+        when(providerSearchCoordinator.search(
+                eq("user-1"), any(JobSearchCriteria.class), anySet(), anyLong()))
+                .thenReturn(fanOut(
+                        List.of(nhsJob),
+                        List.of(status("NHS_JOBS", "SUCCESS", 1)),
+                        true,
+                        true,
+                        true));
+        when(matchingEnricher.enrich(eq("user-1"), any(), anyLong()))
+                .thenAnswer(invocation -> new OptionalJobMatchingEnricher.MatchingOutcome(
+                        invocation.getArgument(1), "COMPLETE", false));
+
+        var result = service.searchJobs("user-1", request("nurse"));
+
+        assertThat(result.getSearchStatus()).isEqualTo("COMPLETE");
+        assertThat(result.getJobs())
+                .singleElement()
+                .satisfies(job -> {
+                    assertThat(job.getId()).isEqualTo("nhs:C123");
+                    assertThat(job.getProvider()).isEqualTo("NHS_JOBS");
+                });
+        assertThat(result.getProviderResults())
+                .extracting("provider", "status", "rawResultCount")
+                .containsExactly(org.assertj.core.groups.Tuple.tuple(
+                        "NHS_JOBS", "SUCCESS", 1));
+    }
+
+    @Test
+    void returnsNhsResultsWithAggregatePartialStatusWhenAnotherProviderTimesOut() {
+        Job nhsJob = job("nhs:C123", "Community Nurse", "NHS_JOBS");
+        when(providerSearchCoordinator.search(
+                eq("user-1"), any(JobSearchCriteria.class), anySet(), anyLong()))
+                .thenReturn(fanOut(
+                        List.of(nhsJob),
+                        List.of(
+                                status("NHS_JOBS", "SUCCESS", 1),
+                                status("REED", "TIMED_OUT", 0)),
+                        true,
+                        true,
+                        false));
+        when(matchingEnricher.enrich(eq("user-1"), any(), anyLong()))
+                .thenAnswer(invocation -> new OptionalJobMatchingEnricher.MatchingOutcome(
+                        invocation.getArgument(1), "COMPLETE", false));
+
+        var result = service.searchJobs("user-1", request("nurse"));
+
+        assertThat(result.getSearchStatus()).isEqualTo("PARTIAL");
+        assertThat(result.getJobs()).extracting(Job::getProvider)
+                .containsExactly("NHS_JOBS");
+        assertThat(result.getProviderResults())
+                .extracting("provider", "status")
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("NHS_JOBS", "SUCCESS"),
+                        org.assertj.core.groups.Tuple.tuple("REED", "TIMED_OUT"));
+    }
+
+    @Test
     void returnsCompleteSuccessfulResponseForHealthyZeroResultProvider() {
         when(providerSearchCoordinator.search(
                 eq("user-1"), any(JobSearchCriteria.class), anySet(), anyLong()))
