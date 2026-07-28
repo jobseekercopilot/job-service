@@ -149,10 +149,13 @@ public class JobSearchService {
             throw new DownstreamServiceUnavailableException(reason);
         }
 
-        List<RoleJob> boundedJobs = aggregateJobs.stream()
+        List<RoleJob> orderedJobs = aggregateJobs.stream()
                 .sorted(resultOrder(sort, targetRoles))
                 .limit(MAX_AGGREGATE_RESULTS)
                 .toList();
+        List<RoleJob> boundedJobs = DEFAULT_SORT.equals(sort)
+                ? diversifySources(orderedJobs, targetRoles)
+                : orderedJobs;
         int totalResults = boundedJobs.size();
         long requestedStart = (long) (page - 1) * pageSize;
         int fromIndex = (int) Math.min(requestedStart, totalResults);
@@ -452,6 +455,40 @@ public class JobSearchService {
                                 row.targetRole(),
                                 Integer.MAX_VALUE))
                 .thenComparing(jobOrder);
+    }
+
+    private List<RoleJob> diversifySources(
+            List<RoleJob> orderedJobs,
+            List<String> targetRoles) {
+        List<RoleJob> diversified = new ArrayList<>(orderedJobs.size());
+        for (String role : targetRoles) {
+            Map<String, List<RoleJob>> sourceBuckets =
+                    new LinkedHashMap<>();
+            orderedJobs.stream()
+                    .filter(row -> row.targetRole().equals(role))
+                    .forEach(row -> sourceBuckets
+                            .computeIfAbsent(
+                                    sourceKey(row.job()),
+                                    ignored -> new ArrayList<>())
+                            .add(row));
+            for (int index = 0; ; index++) {
+                boolean added = false;
+                for (List<RoleJob> bucket : sourceBuckets.values()) {
+                    if (index < bucket.size()) {
+                        diversified.add(bucket.get(index));
+                        added = true;
+                    }
+                }
+                if (!added) {
+                    break;
+                }
+            }
+        }
+        return diversified;
+    }
+
+    private String sourceKey(Job job) {
+        return firstNonBlank(job.getPrimarySource(), job.getProvider());
     }
 
     private Double annualSalaryMidpoint(Job job) {

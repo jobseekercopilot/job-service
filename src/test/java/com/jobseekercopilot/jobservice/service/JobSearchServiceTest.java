@@ -425,6 +425,45 @@ class JobSearchServiceTest {
     }
 
     @Test
+    void defaultPageKeepsSuccessfulSourcesVisible() {
+        Job firstReed = job(
+                "reed-1",
+                "Staff Nurse One",
+                "REED");
+        firstReed.setMatchScore(0.95);
+        Job secondReed = job(
+                "reed-2",
+                "Staff Nurse Two",
+                "REED");
+        secondReed.setMatchScore(0.90);
+        Job nhs = job(
+                "nhs-1",
+                "Staff Nurse NHS",
+                "NHS_JOBS");
+        nhs.setMatchScore(0.50);
+        when(providerSearchCoordinator.search(
+                eq("user-1"), any(JobSearchCriteria.class), anySet(), anyLong()))
+                .thenReturn(fanOut(
+                        List.of(firstReed, secondReed, nhs),
+                        List.of(
+                                status("REED", "SUCCESS", 2),
+                                status("NHS_JOBS", "SUCCESS", 1)),
+                        true,
+                        true,
+                        true));
+        passThroughMatching();
+        JobSearchRequest request = request("Staff Nurse");
+        request.setPageSize(2);
+
+        var result = service.searchJobs("user-1", request);
+
+        assertThat(result.getJobs())
+                .extracting(Job::getPrimarySource)
+                .containsExactly("REED", "NHS_JOBS");
+        assertThat(result.getTotalResults()).isEqualTo(3);
+    }
+
+    @Test
     void sortsKnownSalaryValuesHighestFirstAndPlacesMissingValuesLast() {
         Job lower = job("lower", "Lower salary", "REED");
         lower.setSalary(new JobSalary(40_000, 50_000, "GBP", "YEAR"));
