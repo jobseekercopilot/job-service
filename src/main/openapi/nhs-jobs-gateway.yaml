@@ -1,0 +1,103 @@
+openapi: 3.0.3
+info:
+  title: NHS Jobs Gateway API
+  version: 1.0.0
+  description: Provider-specific adapter for public NHS Jobs vacancies.
+paths:
+  /api/v1/nhs/jobs/search:
+    post:
+      operationId: searchNhsJobs
+      summary: Search public NHS Jobs vacancies
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NhsJobsSearchRequest"
+      responses:
+        "200":
+          description: Provider response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NhsJobsSearchResponse"
+        "400":
+          description: Invalid request
+        "429":
+          description: Provider rate limited
+        "503":
+          description: Provider unavailable
+components:
+  schemas:
+    NhsJobsSearchRequest:
+      type: object
+      properties:
+        keyword: {type: string, maxLength: 200}
+        location: {type: string, maxLength: 200}
+        distanceMiles: {type: integer, minimum: 0, maximum: 100}
+        countryCode: {type: string, maxLength: 3}
+        contractTypes:
+          type: array
+          maxItems: 20
+          items: {type: string, maxLength: 80}
+        staffGroups:
+          type: array
+          maxItems: 20
+          items: {type: string, maxLength: 80}
+        workingPatterns:
+          type: array
+          maxItems: 20
+          items: {type: string, maxLength: 80}
+        payBands:
+          type: array
+          maxItems: 20
+          items: {type: string, maxLength: 80}
+        salaryFrom: {type: integer, minimum: 0}
+        salaryTo: {type: integer, minimum: 0}
+        publishedFrom: {type: string, maxLength: 40}
+        sort: {type: string, maxLength: 40}
+        page: {type: integer, minimum: 1, default: 1}
+        resultsPerPage: {type: integer, minimum: 1, maximum: 100, default: 50}
+    NhsJobsSearchResponse:
+      type: object
+      required: [provider, status, totalResults, totalPages, page, resultsPerPage, attribution, jobs]
+      properties:
+        provider: {type: string, enum: [NHS_JOBS]}
+        status: {type: string, enum: [AVAILABLE, DISABLED]}
+        totalResults: {type: integer, minimum: 0}
+        totalPages: {type: integer, minimum: 0}
+        page: {type: integer, minimum: 1}
+        resultsPerPage: {type: integer, minimum: 1, maximum: 100}
+        attribution:
+          $ref: "#/components/schemas/ProviderAttribution"
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/CanonicalJob"
+    ProviderAttribution:
+      type: object
+      required: [label, sourceUrl, licenceUrl, disclaimer]
+      properties:
+        label: {type: string}
+        sourceUrl: {type: string, format: uri}
+        licenceUrl: {type: string, format: uri}
+        disclaimer: {type: string}
+    CanonicalJob:
+      type: object
+      required: [externalJobId, title, employer, locations, source]
+      properties:
+        externalJobId: {type: string}
+        reference: {type: string, nullable: true}
+        title: {type: string}
+        employer: {type: string}
+        description: {type: string, nullable: true}
+        locations:
+          type: array
+          items: {type: string}
+        salaryText: {type: string, nullable: true}
+        contractType: {type: string, nullable: true}
+        postedAt: {type: string, nullable: true}
+        closesAt: {type: string, nullable: true}
+        source: {type: string}
+        sourceUrl: {type: string, format: uri, nullable: true}
+        applicationUrl: {type: string, format: uri, nullable: true}

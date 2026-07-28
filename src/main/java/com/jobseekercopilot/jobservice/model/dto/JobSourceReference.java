@@ -18,6 +18,10 @@ public class JobSourceReference {
     private String providerExpiresAtRaw;
     private OffsetDateTime providerExpiresAtUtc;
     private OffsetDateTime retrievedAtUtc;
+    private String attributionLabel;
+    private String attributionSourceUrl;
+    private String licenceUrl;
+    private String disclaimer;
 
     public String getIntegrationProvider() {
         return integrationProvider;
@@ -143,5 +147,37 @@ public class JobSourceReference {
 
     public void setRetrievedAtUtc(OffsetDateTime retrievedAtUtc) {
         this.retrievedAtUtc = retrievedAtUtc;
+    }
+
+    public String getAttributionLabel() {
+        return attributionLabel;
+    }
+
+    public void setAttributionLabel(String attributionLabel) {
+        this.attributionLabel = attributionLabel;
+    }
+
+    public String getAttributionSourceUrl() {
+        return attributionSourceUrl;
+    }
+
+    public void setAttributionSourceUrl(String attributionSourceUrl) {
+        this.attributionSourceUrl = attributionSourceUrl;
+    }
+
+    public String getLicenceUrl() {
+        return licenceUrl;
+    }
+
+    public void setLicenceUrl(String licenceUrl) {
+        this.licenceUrl = licenceUrl;
+    }
+
+    public String getDisclaimer() {
+        return disclaimer;
+    }
+
+    public void setDisclaimer(String disclaimer) {
+        this.disclaimer = disclaimer;
     }
 }

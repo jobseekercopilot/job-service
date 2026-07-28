@@ -1,0 +1,4 @@
+repository=jobseekercopilot/nhs-jobs-gateway
+revision=0b0d63ccdfffc4767359223bbc696b442962ffbb
+path=api/openapi.yaml
+sha256=4ffd3e1fb5f8e91930ffdc8abf8a796faf40a539e42398cb76ffbe48bc98ae2d

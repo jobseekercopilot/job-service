@@ -16,6 +16,8 @@ copy_fixture() {
         "$source_dir/adzuna-gateway.SOURCE" \
         "$source_dir/jsearch-gateway.yaml" \
         "$source_dir/jsearch-gateway.SOURCE" \
+        "$source_dir/nhs-jobs-gateway.yaml" \
+        "$source_dir/nhs-jobs-gateway.SOURCE" \
         "$source_dir/reed-gateway.yaml" \
         "$source_dir/reed-gateway.SOURCE" \
         "$source_dir/SHA256SUMS" \
@@ -26,11 +28,11 @@ recalculate_manifest() {
     fixture="$1"
     (
         cd "$fixture"
-        sha256sum adzuna-gateway.yaml jsearch-gateway.yaml reed-gateway.yaml > SHA256SUMS
+        sha256sum adzuna-gateway.yaml jsearch-gateway.yaml nhs-jobs-gateway.yaml reed-gateway.yaml > SHA256SUMS
     )
 }
 
-for provider in adzuna-gateway jsearch-gateway reed-gateway; do
+for provider in adzuna-gateway jsearch-gateway nhs-jobs-gateway reed-gateway; do
     missing_contract="$temporary_root/missing-$provider-contract"
     copy_fixture "$missing_contract"
     rm "$missing_contract/$provider.yaml"
@@ -80,6 +82,15 @@ sed -i '/operationId: search/d' "$missing_jsearch_operation/jsearch-gateway.yaml
 recalculate_manifest "$missing_jsearch_operation"
 if "$script_dir/verify-contracts.sh" "$missing_jsearch_operation" >/dev/null 2>&1; then
     echo "contract policy test: JSearch operation removal was accepted" >&2
+    exit 1
+fi
+
+missing_nhs_jobs_operation="$temporary_root/missing-nhs-jobs-operation"
+copy_fixture "$missing_nhs_jobs_operation"
+sed -i '/operationId: searchNhsJobs/d' "$missing_nhs_jobs_operation/nhs-jobs-gateway.yaml"
+recalculate_manifest "$missing_nhs_jobs_operation"
+if "$script_dir/verify-contracts.sh" "$missing_nhs_jobs_operation" >/dev/null 2>&1; then
+    echo "contract policy test: NHS Jobs operation removal was accepted" >&2
     exit 1
 fi
 

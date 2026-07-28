@@ -23,6 +23,7 @@ public class Job {
     private String location;
     private CanonicalLocation canonicalLocation;
     private JobSalary salary;
+    private String salaryText;
     private String employmentType;
     private EmploymentTypeCode employmentTypeCode =
             EmploymentTypeCode.UNKNOWN;
@@ -162,6 +163,14 @@ public class Job {
 
     public void setSalary(JobSalary salary) {
         this.salary = salary;
+    }
+
+    public String getSalaryText() {
+        return salaryText;
+    }
+
+    public void setSalaryText(String salaryText) {
+        this.salaryText = salaryText;
     }
 
     public String getEmploymentType() {

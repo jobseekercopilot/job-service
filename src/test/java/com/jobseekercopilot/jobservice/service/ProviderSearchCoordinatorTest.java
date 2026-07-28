@@ -109,6 +109,48 @@ class ProviderSearchCoordinatorTest {
     }
 
     @Test
+    void preservesHealthyDisabledProviderAsIndependentCompleteStatus() {
+        executor = executor(1, 1);
+        JobProviderAdapter nhsJobs = new JobProviderAdapter() {
+            @Override
+            public String provider() {
+                return "NHS_JOBS";
+            }
+
+            @Override
+            public boolean isEnabled() {
+                return true;
+            }
+
+            @Override
+            public List<Job> search(
+                    String userId,
+                    JobSearchCriteria criteria) {
+                return List.of();
+            }
+
+            @Override
+            public ProviderSearchOutcome searchWithStatus(
+                    String userId,
+                    JobSearchCriteria criteria) {
+                return ProviderSearchOutcome.disabled();
+            }
+        };
+        ProviderSearchCoordinator coordinator = coordinator(
+                List.of(nhsJobs), 500, 300);
+
+        var result = coordinator.search(
+                "user-1", criteria(), Set.of(), deadlineAfter(500));
+
+        assertThat(result.providerResults())
+                .extracting("provider", "status")
+                .containsExactly(org.assertj.core.groups.Tuple.tuple(
+                        "NHS_JOBS", "DISABLED"));
+        assertThat(result.anySuccess()).isTrue();
+        assertThat(result.complete()).isTrue();
+    }
+
+    @Test
     void capsEachProviderWindowWhilePreservingItsRawResultCount() {
         executor = executor(1, 1);
         JobProviderAdapter reed = adapter(

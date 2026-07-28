@@ -66,9 +66,11 @@ public class ProviderSearchCoordinator {
 
             long submittedAt = System.nanoTime();
             try {
-                Future<List<Job>> future = executor.submit(
+                Future<JobProviderAdapter.ProviderSearchOutcome> future =
+                        executor.submit(
                         DownstreamTaskContext.withCurrentMdc(
-                                () -> adapter.search(userId, criteria)));
+                                () -> adapter.searchWithStatus(
+                                        userId, criteria)));
                 work.add(ProviderWork.submitted(provider, submittedAt, future));
             } catch (RejectedExecutionException exception) {
                 log.warn("Provider {} rejected by bounded executor", provider);
@@ -102,7 +104,8 @@ public class ProviderSearchCoordinator {
                 ProviderCallResult result = await(providerWork, requestDeadlineNanos);
                 statuses.add(result.status());
                 rawJobs.addAll(result.jobs());
-                if ("SUCCESS".equals(result.status().getStatus())) {
+                if ("SUCCESS".equals(result.status().getStatus())
+                        || "DISABLED".equals(result.status().getStatus())) {
                     anySuccess = true;
                 } else {
                     complete = false;
@@ -138,15 +141,28 @@ public class ProviderSearchCoordinator {
         }
 
         try {
-            List<Job> jobs = work.future().isDone()
+            JobProviderAdapter.ProviderSearchOutcome outcome =
+                    work.future().isDone()
                     ? work.future().get()
                     : work.future().get(remaining, TimeUnit.NANOSECONDS);
-            List<Job> providerJobs = jobs == null ? List.of() : jobs;
+            if ("DISABLED".equals(outcome.status())) {
+                return new ProviderCallResult(
+                        List.of(),
+                        new ProviderResultStatus(
+                                work.provider(),
+                                "DISABLED",
+                                0,
+                                null));
+            }
+            List<Job> providerJobs = outcome.jobs() == null
+                    ? List.of()
+                    : outcome.jobs();
             List<Job> safeJobs = providerJobs.stream()
                     .limit(MAX_RESULTS_PER_PROVIDER)
                     .toList();
-            log.info("Provider {} returned rawCount={} acceptedCount={}",
+            log.info("Provider {} returned status={} rawCount={} acceptedCount={}",
                     work.provider(),
+                    outcome.status(),
                     providerJobs.size(),
                     safeJobs.size());
             return new ProviderCallResult(
@@ -245,13 +261,14 @@ public class ProviderSearchCoordinator {
     private record ProviderWork(
             String provider,
             long submittedAtNanos,
-            Future<List<Job>> future,
+            Future<JobProviderAdapter.ProviderSearchOutcome> future,
             ProviderResultStatus immediateStatus) {
 
         static ProviderWork submitted(
                 String provider,
                 long submittedAtNanos,
-                Future<List<Job>> future) {
+                Future<JobProviderAdapter.ProviderSearchOutcome>
+                        future) {
             return new ProviderWork(provider, submittedAtNanos, future, null);
         }
 

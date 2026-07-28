@@ -15,6 +15,8 @@ for required_file in \
     adzuna-gateway.SOURCE \
     jsearch-gateway.yaml \
     jsearch-gateway.SOURCE \
+    nhs-jobs-gateway.yaml \
+    nhs-jobs-gateway.SOURCE \
     reed-gateway.yaml \
     reed-gateway.SOURCE \
     SHA256SUMS
@@ -25,9 +27,10 @@ do
     }
 done
 
-test "$(wc -l < "$checksums")" -eq 3
+test "$(wc -l < "$checksums")" -eq 4
 grep -Eq '^[a-f0-9]{64}  adzuna-gateway\.yaml$' "$checksums"
 grep -Eq '^[a-f0-9]{64}  jsearch-gateway\.yaml$' "$checksums"
+grep -Eq '^[a-f0-9]{64}  nhs-jobs-gateway\.yaml$' "$checksums"
 grep -Eq '^[a-f0-9]{64}  reed-gateway\.yaml$' "$checksums"
 (cd "$contract_dir" && sha256sum --check --strict SHA256SUMS)
 
@@ -57,6 +60,11 @@ verify_source \
     b7542b74265b9b6fd4cee752b4d9719935ccc3d9 \
     abe1984b48939f3c9820b846098bab5f20ee3c9346fb208df172deb9805382ad
 verify_source \
+    nhs-jobs-gateway \
+    jobseekercopilot/nhs-jobs-gateway \
+    0b0d63ccdfffc4767359223bbc696b442962ffbb \
+    4ffd3e1fb5f8e91930ffdc8abf8a796faf40a539e42398cb76ffbe48bc98ae2d
+verify_source \
     reed-gateway \
     jobseekercopilot/reed-gateway \
     85f3d5ad0117576b0baab08fa0430673a9ba7155 \
@@ -64,9 +72,10 @@ verify_source \
 
 adzuna_contract="$contract_dir/adzuna-gateway.yaml"
 jsearch_contract="$contract_dir/jsearch-gateway.yaml"
+nhs_jobs_contract="$contract_dir/nhs-jobs-gateway.yaml"
 reed_contract="$contract_dir/reed-gateway.yaml"
 
-for contract in "$adzuna_contract" "$jsearch_contract" "$reed_contract"; do
+for contract in "$adzuna_contract" "$jsearch_contract" "$nhs_jobs_contract" "$reed_contract"; do
     grep -Eq '^openapi: 3\.0\.[0-9]+$' "$contract"
 done
 
@@ -79,6 +88,11 @@ grep -F '  /api/v1/jsearch/jobs/search:' "$jsearch_contract" >/dev/null
 grep -F '      operationId: search' "$jsearch_contract" >/dev/null
 grep -F '    JSearchSearchRequest:' "$jsearch_contract" >/dev/null
 grep -F '    JSearchSearchResponse:' "$jsearch_contract" >/dev/null
+
+grep -F '  /api/v1/nhs/jobs/search:' "$nhs_jobs_contract" >/dev/null
+grep -F '      operationId: searchNhsJobs' "$nhs_jobs_contract" >/dev/null
+grep -F '    NhsJobsSearchRequest:' "$nhs_jobs_contract" >/dev/null
+grep -F '    NhsJobsSearchResponse:' "$nhs_jobs_contract" >/dev/null
 
 grep -F '  /api/jobs/external-search:' "$reed_contract" >/dev/null
 grep -F '      operationId: externalSearch' "$reed_contract" >/dev/null
