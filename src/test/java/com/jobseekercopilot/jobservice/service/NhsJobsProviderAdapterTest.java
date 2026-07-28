@@ -75,6 +75,9 @@ class NhsJobsProviderAdapterTest {
         verify(api).searchNhsJobs(request.capture());
 
         assertThat(request.getValue().getCountryCode()).isEqualTo("GB-ENG");
+        assertThat(request.getValue().getContractTypes()).isEmpty();
+        assertThat(request.getValue().getWorkingPatterns())
+                .containsExactly("Full time");
 
         assertThat(jobs).singleElement().satisfies(job -> {
             assertThat(job.getProvider()).isEqualTo("NHS_JOBS");
@@ -143,7 +146,7 @@ class NhsJobsProviderAdapterTest {
                 role,
                 location,
                 25,
-                List.of("Permanent"),
+                List.of("FULL_TIME"),
                 null,
                 null,
                 "GBP",

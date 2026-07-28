@@ -66,7 +66,8 @@ public class NhsJobsProviderAdapter implements JobProviderAdapter {
                 .countryCode(criteria.getLocation() == null
                                 || criteria.getLocation().isBlank()
                         ? null : DEFAULT_COUNTRY_CODE)
-                .contractTypes(criteria.getEmploymentTypes())
+                .workingPatterns(nhsWorkingPatterns(
+                        criteria.getEmploymentTypes()))
                 .salaryFrom(criteria.getSalaryMin())
                 .salaryTo(criteria.getSalaryMax())
                 .page(1)
@@ -85,6 +86,24 @@ public class NhsJobsProviderAdapter implements JobProviderAdapter {
                 response.getJobs().stream()
                         .map(job -> toJob(job, attribution))
                         .toList());
+    }
+
+    private List<String> nhsWorkingPatterns(
+            List<String> employmentTypes) {
+        if (employmentTypes == null) {
+            return List.of();
+        }
+        return employmentTypes.stream()
+                .filter(value -> value != null && !value.isBlank())
+                .map(value -> switch (
+                        value.trim().toUpperCase()) {
+                    case "FULL_TIME" -> "Full time";
+                    case "PART_TIME" -> "Part time";
+                    default -> null;
+                })
+                .filter(value -> value != null)
+                .distinct()
+                .toList();
     }
 
     private Job toJob(
