@@ -20,6 +20,8 @@ response_sort_schema="$temporary_root/job-search-response-sort.yaml"
 search_status_schema="$temporary_root/search-status.yaml"
 matching_status_schema="$temporary_root/matching-status.yaml"
 provider_status_schema="$temporary_root/provider-result-status.yaml"
+target_role_schema="$temporary_root/target-role-results.yaml"
+target_role_search_status_schema="$temporary_root/target-role-search-status.yaml"
 saved_job_schema="$temporary_root/saved-job-response.yaml"
 saved_job_page_schema="$temporary_root/saved-job-page-response.yaml"
 
@@ -45,7 +47,7 @@ test -f "$contract" && test ! -L "$contract" || {
 }
 
 grep -Eq '^openapi: 3\.0\.[0-9]+$' "$contract"
-grep -F '  version: 2.1.0' "$contract" >/dev/null
+grep -F '  version: 2.2.0' "$contract" >/dev/null
 grep -F '  /api/jobs/search:' "$contract" >/dev/null
 grep -F '      operationId: searchJobs' "$contract" >/dev/null
 grep -F '  /api/jobs/saved:' "$contract" >/dev/null
@@ -151,6 +153,17 @@ done
 for sort in MOST_RELEVANT CLOSEST HIGHEST_SALARY NEWEST_POSTED \
         OLDEST_POSTED COMPANY_AZ JOB_TITLE_AZ; do
     grep -F "          - $sort" "$response_sort_schema" >/dev/null
+done
+
+extract_schema TargetRoleJobResults > "$target_role_schema"
+for property in targetRole jobs totalResults page pageSize totalPages \
+        providerResults searchStatus matchingStatus; do
+    grep -F "        $property:" "$target_role_schema" >/dev/null
+done
+extract_property TargetRoleJobResults searchStatus \
+    > "$target_role_search_status_schema"
+for status in COMPLETE PARTIAL UNAVAILABLE; do
+    grep -F "          - $status" "$target_role_search_status_schema" >/dev/null
 done
 
 extract_schema ProviderResultStatus > "$provider_status_schema"

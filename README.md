@@ -14,8 +14,11 @@ provider snapshots are isolated from user-specific application state.
 Canonical Job schema 2.0 adds lossless raw evidence, explicit unknown
 taxonomies, provenance, decimal salary fields, timezone-safe instants, skills
 and experience without removing legacy fields.
-Job Search API 2.1 adds bounded server-side paging, deterministic sorting and
-truthful aggregate metadata without removing the 2.0 canonical Job fields.
+Job Search API 2.2 applies bounded server-side paging and deterministic sorting
+independently to every target role. Role-scoped totals, provider outcomes and
+matching state prevent one role's page or failure from appearing as another
+role's empty result set. The legacy top-level response remains as a flattened
+compatibility view without removing the 2.0 canonical Job fields.
 Owner-scoped saved jobs now use PostgreSQL/Flyway and retain immutable,
 digest-addressed canonical snapshots through replay, update, unsave and
 reactivation. Other tracked beta work remains. See

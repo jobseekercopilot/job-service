@@ -309,6 +309,64 @@ class JobSearchServiceTest {
     }
 
     @Test
+    void reusesOwnerScopedPartialSnapshotForStableSubsequentPages() {
+        when(providerSearchCoordinator.search(
+                eq("user-1"), any(JobSearchCriteria.class), anySet(), anyLong()))
+                .thenReturn(fanOut(
+                        List.of(
+                                job("first", "A role", "REED"),
+                                job("second", "B role", "REED"),
+                                job("third", "C role", "REED")),
+                        List.of(
+                                status("REED", "SUCCESS", 3),
+                                status("ADZUNA", "TIMED_OUT", 0)),
+                        true,
+                        true,
+                        false));
+        passThroughMatching();
+        JobSearchRequest firstPage = request("developer");
+        firstPage.setPage(1);
+        firstPage.setPageSize(2);
+        firstPage.setSort("JOB_TITLE_AZ");
+        JobSearchRequest secondPage = request("developer");
+        secondPage.setPage(2);
+        secondPage.setPageSize(2);
+        secondPage.setSort("JOB_TITLE_AZ");
+
+        var pageOne = service.searchJobs("user-1", firstPage);
+        var pageTwo = service.searchJobs("user-1", secondPage);
+
+        assertThat(pageOne.getSearchStatus()).isEqualTo("PARTIAL");
+        assertThat(pageTwo.getSearchStatus()).isEqualTo("PARTIAL");
+        assertThat(pageOne.getJobs())
+                .extracting(Job::getCanonicalJobId)
+                .doesNotContainAnyElementsOf(
+                        pageTwo.getJobs().stream()
+                                .map(Job::getCanonicalJobId)
+                                .toList());
+        assertThat(pageTwo.getResultsByTargetRole())
+                .singleElement()
+                .satisfies(role -> {
+                    assertThat(role.getSearchStatus()).isEqualTo("PARTIAL");
+                    assertThat(role.getProviderResults())
+                            .extracting(
+                                    ProviderResultStatus::getProvider,
+                                    ProviderResultStatus::getStatus)
+                            .containsExactly(
+                                    org.assertj.core.groups.Tuple.tuple(
+                                            "REED",
+                                            "SUCCESS"),
+                                    org.assertj.core.groups.Tuple.tuple(
+                                            "ADZUNA",
+                                            "TIMED_OUT"));
+                });
+        verify(providerSearchCoordinator, times(1))
+                .search(any(), any(JobSearchCriteria.class), anySet(), anyLong());
+        verify(matchingEnricher, times(2))
+                .enrich(eq("user-1"), any(), anyLong());
+    }
+
+    @Test
     void defaultsToAStableBoundedFirstPageWithTruthfulMetadata() {
         List<Job> jobs = new ArrayList<>();
         for (int index = 0; index < 12; index++) {
@@ -379,7 +437,7 @@ class JobSearchServiceTest {
     }
 
     @Test
-    void pagesTheDeterministicAggregateAndKeepsRoleGroupsPageScoped() {
+    void pagesEachTargetRoleIndependentlyWithRoleScopedTotals() {
         when(providerSearchCoordinator.search(
                 eq("user-1"), any(JobSearchCriteria.class), anySet(), anyLong()))
                 .thenReturn(
@@ -402,28 +460,242 @@ class JobSearchServiceTest {
         passThroughMatching();
         JobSearchRequest request = request("developer", "tester");
         request.setPage(2);
-        request.setPageSize(2);
+        request.setPageSize(1);
         request.setSort("job_title_az");
 
         var result = service.searchJobs("user-1", request);
 
         assertThat(result.getJobs())
                 .extracting(Job::getTitle)
-                .containsExactly("C role", "D role");
+                .containsExactly("B role");
         assertThat(result.getTotalResults()).isEqualTo(4);
         assertThat(result.getPage()).isEqualTo(2);
-        assertThat(result.getPageSize()).isEqualTo(2);
-        assertThat(result.getTotalPages()).isEqualTo(2);
+        assertThat(result.getPageSize()).isEqualTo(1);
+        assertThat(result.getTotalPages()).isEqualTo(4);
         assertThat(result.getSort()).isEqualTo("JOB_TITLE_AZ");
         assertThat(result.getResultsByTargetRole())
                 .extracting(ReedJobSearchResponse.TargetRoleJobResults::getTargetRole)
                 .containsExactly("developer", "tester");
-        assertThat(result.getResultsByTargetRole().get(0).getJobs())
-                .extracting(Job::getTitle)
-                .containsExactly("D role");
-        assertThat(result.getResultsByTargetRole().get(1).getJobs())
-                .extracting(Job::getTitle)
-                .containsExactly("C role");
+        assertThat(result.getResultsByTargetRole().get(0))
+                .satisfies(developer -> {
+                    assertThat(developer.getJobs())
+                            .extracting(Job::getTitle)
+                            .containsExactly("D role");
+                    assertThat(developer.getTotalResults()).isEqualTo(2);
+                    assertThat(developer.getPage()).isEqualTo(2);
+                    assertThat(developer.getPageSize()).isEqualTo(1);
+                    assertThat(developer.getTotalPages()).isEqualTo(2);
+                    assertThat(developer.getSearchStatus())
+                            .isEqualTo("COMPLETE");
+                    assertThat(developer.getMatchingStatus())
+                            .isEqualTo("COMPLETE");
+                    assertThat(developer.getProviderResults())
+                            .extracting(ProviderResultStatus::getProvider)
+                            .containsExactly("REED");
+                });
+        assertThat(result.getResultsByTargetRole().get(1))
+                .satisfies(tester -> {
+                    assertThat(tester.getJobs())
+                            .extracting(Job::getTitle)
+                            .containsExactly("C role");
+                    assertThat(tester.getTotalResults()).isEqualTo(2);
+                    assertThat(tester.getPage()).isEqualTo(2);
+                    assertThat(tester.getPageSize()).isEqualTo(1);
+                    assertThat(tester.getTotalPages()).isEqualTo(2);
+                    assertThat(tester.getSearchStatus())
+                            .isEqualTo("COMPLETE");
+                    assertThat(tester.getProviderResults())
+                            .extracting(ProviderResultStatus::getProvider)
+                            .containsExactly("ADZUNA");
+                });
+    }
+
+    @Test
+    void preservesSuccessfulRoleWhenAnotherRoleProvidersAreUnavailable() {
+        when(providerSearchCoordinator.search(
+                eq("user-1"), any(JobSearchCriteria.class), anySet(), anyLong()))
+                .thenReturn(
+                        fanOut(
+                                List.of(job(
+                                        "developer-a",
+                                        "Developer role",
+                                        "REED")),
+                                List.of(status("REED", "SUCCESS", 1)),
+                                true,
+                                true,
+                                true),
+                        fanOut(
+                                List.of(),
+                                List.of(status(
+                                        "ADZUNA",
+                                        "RATE_LIMITED",
+                                        0)),
+                                true,
+                                false,
+                                false));
+        passThroughMatching();
+
+        var result =
+                service.searchJobs("user-1", request("developer", "tester"));
+
+        assertThat(result.getSearchStatus()).isEqualTo("PARTIAL");
+        assertThat(result.getTotalResults()).isEqualTo(1);
+        assertThat(result.getResultsByTargetRole().get(0))
+                .satisfies(developer -> {
+                    assertThat(developer.getJobs()).hasSize(1);
+                    assertThat(developer.getSearchStatus())
+                            .isEqualTo("COMPLETE");
+                    assertThat(developer.getTotalResults()).isEqualTo(1);
+                });
+        assertThat(result.getResultsByTargetRole().get(1))
+                .satisfies(tester -> {
+                    assertThat(tester.getJobs()).isEmpty();
+                    assertThat(tester.getSearchStatus())
+                            .isEqualTo("UNAVAILABLE");
+                    assertThat(tester.getMatchingStatus())
+                            .isEqualTo("NOT_RUN");
+                    assertThat(tester.getTotalResults()).isZero();
+                    assertThat(tester.getTotalPages()).isZero();
+                    assertThat(tester.getProviderResults())
+                            .extracting(
+                                    ProviderResultStatus::getProvider,
+                                    ProviderResultStatus::getStatus)
+                            .containsExactly(
+                                    org.assertj.core.groups.Tuple.tuple(
+                                            "ADZUNA",
+                                            "RATE_LIMITED"));
+                });
+    }
+
+    @Test
+    void reportsRoleScopedTimeoutWhenDeadlineStopsLaterRoleFanOut()
+            throws Exception {
+        JobSearchResilienceProperties shortRequest =
+                new JobSearchResilienceProperties(
+                        500,
+                        250,
+                        250,
+                        100,
+                        4,
+                        8);
+        JobSearchService shortDeadlineService = new JobSearchService(
+                providerSearchCoordinator,
+                deduplicationService,
+                jobResultEnrichmentService,
+                distanceCalculationService,
+                matchingEnricher,
+                shortRequest,
+                10);
+        when(providerSearchCoordinator.search(
+                eq("user-1"), any(JobSearchCriteria.class), anySet(), anyLong()))
+                .thenReturn(fanOut(
+                        List.of(job("developer", "Developer role", "REED")),
+                        List.of(status("REED", "SUCCESS", 1)),
+                        true,
+                        true,
+                        true));
+        when(matchingEnricher.enrich(
+                eq("user-1"), any(), anyLong()))
+                .thenAnswer(invocation -> {
+                    Thread.sleep(550);
+                    return new OptionalJobMatchingEnricher.MatchingOutcome(
+                            invocation.getArgument(1),
+                            "COMPLETE",
+                            false);
+                });
+
+        var result = shortDeadlineService.searchJobs(
+                "user-1",
+                request("developer", "tester"));
+
+        assertThat(result.getSearchStatus()).isEqualTo("PARTIAL");
+        assertThat(result.getResultsByTargetRole())
+                .extracting(
+                        ReedJobSearchResponse.TargetRoleJobResults::getTargetRole)
+                .containsExactly("developer", "tester");
+        assertThat(result.getResultsByTargetRole().get(1))
+                .satisfies(tester -> {
+                    assertThat(tester.getJobs()).isEmpty();
+                    assertThat(tester.getSearchStatus())
+                            .isEqualTo("UNAVAILABLE");
+                    assertThat(tester.getProviderResults())
+                            .extracting(
+                                    ProviderResultStatus::getProvider,
+                                    ProviderResultStatus::getStatus)
+                            .containsExactly(
+                                    org.assertj.core.groups.Tuple.tuple(
+                                            "REQUEST",
+                                            "TIMED_OUT"));
+                });
+        verify(providerSearchCoordinator, times(1))
+                .search(any(), any(JobSearchCriteria.class), anySet(), anyLong());
+    }
+
+    @Test
+    void pagesOneCanonicalSnapshotWithoutDuplicatesAndEnrichesEveryPage() {
+        Job duplicate = job("duplicate", "A role duplicate", "ADZUNA");
+        duplicate.setUrl("https://example.com/a");
+        duplicate.setSourceUrl("https://example.com/a");
+        Job first = job("first", "A role", "REED");
+        first.setUrl("https://example.com/a");
+        first.setSourceUrl("https://example.com/a");
+        Job second = job("second", "B role", "REED");
+        Job third = job("third", "C role", "REED");
+        when(providerSearchCoordinator.search(
+                eq("user-1"), any(JobSearchCriteria.class), anySet(), anyLong()))
+                .thenReturn(fanOut(
+                        List.of(first, duplicate, second, third),
+                        List.of(status("REED", "SUCCESS", 4)),
+                        true,
+                        true,
+                        true));
+        when(matchingEnricher.enrich(
+                eq("user-1"), any(), anyLong()))
+                .thenAnswer(invocation -> {
+                    List<Job> jobs = invocation.getArgument(1);
+                    jobs.forEach(job ->
+                            job.setApplicationStatus("SAVED"));
+                    return new OptionalJobMatchingEnricher.MatchingOutcome(
+                            jobs,
+                            "COMPLETE",
+                            false);
+                });
+        JobSearchRequest firstPage = request("developer");
+        firstPage.setPage(1);
+        firstPage.setPageSize(2);
+        firstPage.setSort("JOB_TITLE_AZ");
+        JobSearchRequest secondPage = request("developer");
+        secondPage.setPage(2);
+        secondPage.setPageSize(2);
+        secondPage.setSort("JOB_TITLE_AZ");
+
+        var pageOne = service.searchJobs("user-1", firstPage);
+        var pageTwo = service.searchJobs("user-1", secondPage);
+
+        assertThat(pageOne.getTotalResults()).isEqualTo(3);
+        assertThat(pageTwo.getTotalResults()).isEqualTo(3);
+        assertThat(pageOne.getJobs()).hasSize(2);
+        assertThat(pageTwo.getJobs()).hasSize(1);
+        assertThat(pageOne.getJobs())
+                .extracting(Job::getCanonicalJobId)
+                .doesNotContainAnyElementsOf(
+                        pageTwo.getJobs().stream()
+                                .map(Job::getCanonicalJobId)
+                                .toList());
+        assertThat(pageOne.getJobs())
+                .extracting(Job::getApplicationStatus)
+                .containsOnly("SAVED");
+        assertThat(pageTwo.getJobs())
+                .extracting(Job::getApplicationStatus)
+                .containsOnly("SAVED");
+        verify(providerSearchCoordinator, times(1))
+                .search(
+                        eq("user-1"),
+                        any(JobSearchCriteria.class),
+                        anySet(),
+                        anyLong());
+        verify(matchingEnricher, times(2))
+                .enrich(eq("user-1"), any(), anyLong());
     }
 
     @Test

@@ -27,7 +27,7 @@ public class JobSearchRequest {
     private List<String> selectedProviders;
 
     @Schema(
-            description = "One-based aggregate result page.",
+            description = "One-based page applied to the aggregate compatibility view and independently to every target role.",
             example = "1",
             minimum = "1",
             maximum = "100",
@@ -36,7 +36,7 @@ public class JobSearchRequest {
     private Integer page;
 
     @Schema(
-            description = "Maximum aggregate results returned on one page.",
+            description = "Maximum results returned in the aggregate compatibility view and per target role on one page.",
             example = "10",
             minimum = "1",
             maximum = "50",
@@ -45,7 +45,7 @@ public class JobSearchRequest {
     private Integer pageSize;
 
     @Schema(
-            description = "Stable aggregate result order.",
+            description = "Stable result order applied to the aggregate compatibility view and independently to every target role.",
             allowableValues = {
                     "MOST_RELEVANT",
                     "CLOSEST",

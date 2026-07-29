@@ -67,8 +67,11 @@ budgets and operator guidance are documented in
 
 ## Canonical Job compatibility
 
-API version 2.1.0 publishes canonical Job schema version 2.0, bounded aggregate
-Job Search paging/sorting and the owner-scoped saved-job resource. The
+API version 2.2.0 publishes canonical Job schema version 2.0, bounded
+target-role Job Search paging/sorting and the owner-scoped saved-job resource.
+Each `resultsByTargetRole` item owns its page totals, provider outcomes, search
+status and matching status. The legacy top-level fields remain a flattened
+compatibility view. The
 canonical job model
 retains legacy aliases while adding raw and normalised values, explicit unknown
 taxonomies, decimal salary evidence, offset-aware timestamps, complete source
