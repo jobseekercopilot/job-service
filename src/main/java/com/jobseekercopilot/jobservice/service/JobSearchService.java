@@ -297,12 +297,16 @@ public class JobSearchService {
         Aspirations aspirations = request.getAspirations();
         WorkPreferences workPreferences = request.getWorkPreferences();
         SalaryExpectation salary = aspirations.getSalaryExpectation();
+        List<String> employmentTypes =
+                workPreferences == null || workPreferences.getEmploymentType() == null
+                        ? List.of()
+                        : workPreferences.getEmploymentType();
         return new JobSearchCriteria(
                 request,
                 targetRole,
                 aspirations.getLocations().get(0),
                 DEFAULT_DISTANCE,
-                workPreferences == null ? List.of() : workPreferences.getEmploymentType(),
+                employmentTypes,
                 salary == null ? null : salary.getMin(),
                 salary == null ? null : salary.getMax(),
                 salary == null ? null : salary.getCurrency(),

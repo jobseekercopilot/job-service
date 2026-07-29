@@ -23,6 +23,7 @@ import com.jobseekercopilot.jobservice.model.dto.JobSkill;
 import com.jobseekercopilot.jobservice.model.dto.JobSkillType;
 import com.jobseekercopilot.jobservice.model.dto.ProviderResultStatus;
 import com.jobseekercopilot.jobservice.model.dto.ReedJobSearchResponse;
+import com.jobseekercopilot.jobservice.model.dto.WorkPreferences;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -106,6 +107,34 @@ class JobSearchServiceTest {
                 .containsExactly(
                         org.assertj.core.groups.Tuple.tuple(
                                 "REED", "SUCCESS", 0));
+    }
+
+    @Test
+    void acceptsSkippedOptionalEmploymentTypesWithoutInventingADefault() {
+        when(providerSearchCoordinator.search(
+                eq("user-1"), any(JobSearchCriteria.class), anySet(), anyLong()))
+                .thenReturn(fanOut(
+                        List.of(),
+                        List.of(status("REED", "SUCCESS", 0)),
+                        true,
+                        true,
+                        true));
+        when(matchingEnricher.enrich(eq("user-1"), any(), anyLong()))
+                .thenReturn(new OptionalJobMatchingEnricher.MatchingOutcome(
+                        List.of(), "COMPLETE", false));
+        JobSearchRequest request = request("support analyst");
+        WorkPreferences preferences = new WorkPreferences();
+        preferences.setRemotePreference("REMOTE");
+        request.setWorkPreferences(preferences);
+
+        var result = service.searchJobs("user-1", request);
+
+        assertThat(result.getSearchStatus()).isEqualTo("COMPLETE");
+        ArgumentCaptor<JobSearchCriteria> criteria =
+                ArgumentCaptor.forClass(JobSearchCriteria.class);
+        verify(providerSearchCoordinator).search(
+                eq("user-1"), criteria.capture(), anySet(), anyLong());
+        assertThat(criteria.getValue().getEmploymentTypes()).isEmpty();
     }
 
     @Test
