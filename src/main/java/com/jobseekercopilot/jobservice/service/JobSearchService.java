@@ -60,6 +60,8 @@ public class JobSearchService {
     private final JobSearchResilienceProperties resilience;
     private final int cacheTtlMinutes;
     private final Map<String, CacheEntry> searchCache = new ConcurrentHashMap<>();
+    private final Map<String, CacheEntry> partialPageCache =
+            new ConcurrentHashMap<>();
 
     public JobSearchService(ProviderSearchCoordinator providerSearchCoordinator,
                             JobDeduplicationService deduplicationService,
@@ -95,7 +97,7 @@ public class JobSearchService {
                 pageSize,
                 sort);
         List<ProviderResultStatus> providerResults = new ArrayList<>();
-        List<RoleJob> aggregateJobs = new ArrayList<>();
+        List<RoleSearchResult> roleResults = new ArrayList<>();
         boolean anyProviderSuccess = false;
         boolean anyProviderAttempted = false;
         boolean partial = false;
@@ -104,13 +106,20 @@ public class JobSearchService {
         for (String targetRole : targetRoles) {
             if (System.nanoTime() >= requestDeadlineNanos) {
                 anyProviderAttempted = true;
-                providerResults.add(new ProviderResultStatus(
+                ProviderResultStatus timeoutStatus = new ProviderResultStatus(
                         "REQUEST",
                         "TIMED_OUT",
                         0,
-                        "Job search deadline reached"));
+                        "Job search deadline reached");
+                providerResults.add(timeoutStatus);
+                roleResults.add(new RoleSearchResult(
+                        targetRole,
+                        List.of(),
+                        List.of(timeoutStatus),
+                        "UNAVAILABLE",
+                        "NOT_RUN"));
                 partial = true;
-                break;
+                continue;
             }
             JobSearchCriteria criteria = criteria(request, targetRole);
             ProviderSearchResult providerSearchResult = cachedProviderSearch(
@@ -124,6 +133,12 @@ public class JobSearchService {
             partial |= !providerSearchResult.complete();
 
             if (!providerSearchResult.anySuccess()) {
+                roleResults.add(new RoleSearchResult(
+                        targetRole,
+                        List.of(),
+                        providerSearchResult.providerResults(),
+                        "UNAVAILABLE",
+                        "NOT_RUN"));
                 continue;
             }
 
@@ -138,8 +153,21 @@ public class JobSearchService {
                     matchingStatus,
                     matchingOutcome.status());
             partial |= matchingOutcome.degraded();
-            enrichedJobs.forEach(job ->
-                    aggregateJobs.add(new RoleJob(targetRole, job)));
+            List<Job> boundedRoleJobs = enrichedJobs.stream()
+                    .map(job -> new RoleJob(targetRole, job))
+                    .sorted(resultOrder(sort))
+                    .map(RoleJob::job)
+                    .toList();
+            String roleSearchStatus =
+                    !providerSearchResult.complete() || matchingOutcome.degraded()
+                            ? "PARTIAL"
+                            : "COMPLETE";
+            roleResults.add(new RoleSearchResult(
+                    targetRole,
+                    boundedRoleJobs,
+                    providerSearchResult.providerResults(),
+                    roleSearchStatus,
+                    matchingOutcome.status()));
         }
 
         if (!anyProviderSuccess) {
@@ -149,7 +177,12 @@ public class JobSearchService {
             throw new DownstreamServiceUnavailableException(reason);
         }
 
-        List<RoleJob> boundedJobs = aggregateJobs.stream()
+        List<RolePage> rolePages = roleResults.stream()
+                .map(result -> page(result, page, pageSize))
+                .toList();
+        List<RoleJob> boundedJobs = roleResults.stream()
+                .flatMap(result -> result.jobs().stream()
+                        .map(job -> new RoleJob(result.targetRole(), job)))
                 .sorted(resultOrder(sort))
                 .limit(MAX_AGGREGATE_RESULTS)
                 .toList();
@@ -160,13 +193,17 @@ public class JobSearchService {
         List<RoleJob> pageRows = boundedJobs.subList(fromIndex, toIndex);
         List<Job> pageJobs = pageRows.stream().map(RoleJob::job).toList();
         List<ReedJobSearchResponse.TargetRoleJobResults> resultsByTargetRole =
-                targetRoles.stream()
-                        .map(role -> new ReedJobSearchResponse.TargetRoleJobResults(
-                                role,
-                                pageRows.stream()
-                                        .filter(row -> row.targetRole().equals(role))
-                                        .map(RoleJob::job)
-                                        .toList()))
+                rolePages.stream()
+                        .map(rolePage ->
+                                new ReedJobSearchResponse.TargetRoleJobResults(
+                                        rolePage.targetRole(),
+                                        rolePage.jobs(),
+                                        rolePage.totalResults(),
+                                        page,
+                                        pageSize,
+                                        rolePage.providerResults(),
+                                        rolePage.searchStatus(),
+                                        rolePage.matchingStatus()))
                         .toList();
 
         String searchStatus = partial ? "PARTIAL" : "COMPLETE";
@@ -188,12 +225,41 @@ public class JobSearchService {
         return response;
     }
 
+    private RolePage page(
+            RoleSearchResult result,
+            int page,
+            int pageSize) {
+        int totalResults = result.jobs().size();
+        long requestedStart = (long) (page - 1) * pageSize;
+        int fromIndex = (int) Math.min(requestedStart, totalResults);
+        int toIndex = Math.min(fromIndex + pageSize, totalResults);
+        return new RolePage(
+                result.targetRole(),
+                result.jobs().subList(fromIndex, toIndex),
+                totalResults,
+                result.providerResults(),
+                result.searchStatus(),
+                result.matchingStatus());
+    }
+
     private ProviderSearchResult cachedProviderSearch(
             String userId,
             JobSearchCriteria criteria,
             JobSearchRequest request,
             long requestDeadlineNanos) {
         String cacheKey = cacheKey(criteria, request);
+        String ownerPageCacheKey = ownerPageCacheKey(userId, cacheKey);
+        if (page(request) > 1) {
+            CacheEntry partialPage = partialPageCache.get(ownerPageCacheKey);
+            if (partialPage != null && !partialPage.expired(cacheTtlMinutes)) {
+                log.info("Job provider partial-page cache hit jobs={}",
+                        partialPage.result().jobs().size());
+                return copyProviderSearchResult(partialPage.result());
+            }
+            if (partialPage != null) {
+                partialPageCache.remove(ownerPageCacheKey, partialPage);
+            }
+        }
         CacheEntry cached = searchCache.get(cacheKey);
         if (cached != null && !cached.expired(cacheTtlMinutes)) {
             log.info("Job provider search cache hit jobs={}",
@@ -209,6 +275,13 @@ public class JobSearchService {
         if (fresh.complete() && fresh.anySuccess()) {
             searchCache.put(
                     cacheKey,
+                    new CacheEntry(
+                            Instant.now(),
+                            copyProviderSearchResult(fresh)));
+            partialPageCache.remove(ownerPageCacheKey);
+        } else if (fresh.anySuccess()) {
+            partialPageCache.put(
+                    ownerPageCacheKey,
                     new CacheEntry(
                             Instant.now(),
                             copyProviderSearchResult(fresh)));
@@ -297,12 +370,16 @@ public class JobSearchService {
         Aspirations aspirations = request.getAspirations();
         WorkPreferences workPreferences = request.getWorkPreferences();
         SalaryExpectation salary = aspirations.getSalaryExpectation();
+        List<String> employmentTypes =
+                workPreferences == null || workPreferences.getEmploymentType() == null
+                        ? List.of()
+                        : workPreferences.getEmploymentType();
         return new JobSearchCriteria(
                 request,
                 targetRole,
                 aspirations.getLocations().get(0),
                 DEFAULT_DISTANCE,
-                workPreferences == null ? List.of() : workPreferences.getEmploymentType(),
+                employmentTypes,
                 salary == null ? null : salary.getMin(),
                 salary == null ? null : salary.getMax(),
                 salary == null ? null : salary.getCurrency(),
@@ -499,6 +576,10 @@ public class JobSearchService {
         parts.put("currency", criteria.getCurrency());
         parts.put("providers", selectedProviders(request).stream().sorted().toList());
         return parts.toString();
+    }
+
+    private String ownerPageCacheKey(String userId, String cacheKey) {
+        return userId + "\u001f" + cacheKey;
     }
 
     private String mergeMatchingStatus(String current, String next) {
@@ -709,6 +790,23 @@ public class JobSearchService {
     }
 
     private record RoleJob(String targetRole, Job job) {
+    }
+
+    private record RoleSearchResult(
+            String targetRole,
+            List<Job> jobs,
+            List<ProviderResultStatus> providerResults,
+            String searchStatus,
+            String matchingStatus) {
+    }
+
+    private record RolePage(
+            String targetRole,
+            List<Job> jobs,
+            int totalResults,
+            List<ProviderResultStatus> providerResults,
+            String searchStatus,
+            String matchingStatus) {
     }
 
     private record ProviderSearchResult(

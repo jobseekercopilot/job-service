@@ -102,6 +102,31 @@ class OptionalJobMatchingEnricherTest {
     }
 
     @Test
+    void preservesSavedApplicationStateWithoutDocumentReferences() {
+        executor = executor(1, 1);
+        UUID applicationId = UUID.randomUUID();
+        Job providerJob = job("job-1");
+        providerJob.setCanonicalJobId("canonical-1");
+
+        Job matchingJob = job("canonical-1");
+        matchingJob.setCanonicalJobId("canonical-1");
+        matchingJob.setApplicationId(applicationId);
+        matchingJob.setApplicationStatus("SAVED");
+        when(client.enrichJobs(eq("user-1"), anyList()))
+                .thenReturn(List.of(matchingJob));
+
+        var outcome = enricher(300).enrich(
+                "user-1", List.of(providerJob), deadlineAfter(500));
+
+        assertThat(outcome.jobs()).singleElement().satisfies(job -> {
+            assertThat(job.getApplicationId()).isEqualTo(applicationId);
+            assertThat(job.getApplicationStatus()).isEqualTo("SAVED");
+            assertThat(job.getCvDocumentId()).isNull();
+            assertThat(job.getCoverLetterDocumentId()).isNull();
+        });
+    }
+
+    @Test
     void returnsProviderJobsWhenMatchingFails() {
         executor = executor(1, 1);
         Job providerJob = job("provider");

@@ -36,17 +36,19 @@ attempts optional Job Matching enrichment before returning.
   cancellable under a shared request deadline; saturation fails fast instead of
   growing an unbounded queue. Provider-specific retry, rate-limit and circuit
   policy remains in the existing gateway-owned resilience issues.
-- **Completed SEARCH-08 producer paging boundary:** API 2.1 validates page,
-  page size, sort and role limits before fan-out, applies deterministic global
-  sorting and slicing, reports truthful bounded-window totals, limits accepted
-  provider and aggregate results, and follows JSearch continuation cursors
-  within a hard two-call budget. Job Finder contract rollout and end-to-end UI
-  evidence remain in their consumer-owned issues.
-- **P1 cache policy:** cache keys now include provider selection, salary and
-  employment filters; partial provider results are not cached; deep provider
-  snapshots prevent user-specific application state crossing users. The cache
-  is still an unbounded in-memory store with no provider-terms-aware TTL,
-  eviction policy or distributed invalidation.
+- **Completed target-role paging correction:** API 2.2 retains the API 2.1
+  aggregate compatibility page while adding independently sliced, counted and
+  status-bearing target-role results. Page, page size, sort and role limits are
+  validated before fan-out; provider and aggregate results stay bounded; and
+  JSearch continuation remains within a hard two-call budget. Job Finder
+  contract rollout and end-to-end UI evidence remain consumer-owned.
+- **P1 cache policy:** cache keys include target role, provider selection,
+  salary and employment filters. Complete provider snapshots are shared
+  without user enrichment; partial snapshots are owner-scoped only to keep
+  later pages stable, while page-one refresh retries providers. Deep copies
+  prevent user-specific application state crossing users. The caches are still
+  unbounded in-memory stores with no provider-terms-aware TTL, eviction policy
+  or distributed invalidation.
 - **Completed SEARCH-04 canonical schema boundary:** additive schema 2.0
   defines stable provider/source identifiers, raw and normalised values,
   explicit unknown employment/contract/workplace taxonomies, decimal salary

@@ -9,7 +9,7 @@ trap 'rm -rf "$temporary_root"' EXIT INT TERM
 "$script_dir/verify-api-contract.sh" "$source_contract" >/dev/null
 
 stale_version="$temporary_root/stale-canonical-version.yaml"
-sed 's/^  version: 2\.1\.0$/  version: 2.0.0/' \
+sed 's/^  version: 2\.2\.0$/  version: 2.1.0/' \
     "$source_contract" > "$stale_version"
 if "$script_dir/verify-api-contract.sh" "$stale_version" >/dev/null 2>&1; then
     echo "producer contract policy test: stale canonical version was accepted" >&2
@@ -77,6 +77,36 @@ sed '/^        matchingStatus:$/,/^          type: string$/d' \
     "$source_contract" > "$missing_matching_status"
 if "$script_dir/verify-api-contract.sh" "$missing_matching_status" >/dev/null 2>&1; then
     echo "producer contract policy test: missing matching status was accepted" >&2
+    exit 1
+fi
+
+missing_role_total="$temporary_root/missing-target-role-total.yaml"
+awk '
+    $0 == "    TargetRoleJobResults:" { in_schema = 1 }
+    in_schema && $0 == "        totalResults:" {
+        print "        removedTotalResults:"
+        next
+    }
+    $0 == "    CanonicalLocation:" { in_schema = 0 }
+    { print }
+' "$source_contract" > "$missing_role_total"
+if "$script_dir/verify-api-contract.sh" "$missing_role_total" >/dev/null 2>&1; then
+    echo "producer contract policy test: target-role paging total was accepted missing" >&2
+    exit 1
+fi
+
+missing_role_provider_status="$temporary_root/missing-target-role-provider-status.yaml"
+awk '
+    $0 == "    TargetRoleJobResults:" { in_schema = 1 }
+    in_schema && $0 == "        providerResults:" {
+        print "        removedProviderResults:"
+        next
+    }
+    $0 == "    CanonicalLocation:" { in_schema = 0 }
+    { print }
+' "$source_contract" > "$missing_role_provider_status"
+if "$script_dir/verify-api-contract.sh" "$missing_role_provider_status" >/dev/null 2>&1; then
+    echo "producer contract policy test: target-role provider state was accepted missing" >&2
     exit 1
 fi
 

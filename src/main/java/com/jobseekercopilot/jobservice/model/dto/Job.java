@@ -1,6 +1,6 @@
 package com.jobseekercopilot.jobservice.model.dto;
 
-import java.time.LocalDateTime;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,8 +50,10 @@ public class Job {
     private UUID applicationId;
     private String cvDocumentId;
     private String coverLetterDocumentId;
-    private LocalDateTime appliedAt;
-    private LocalDateTime applicationUpdatedAt;
+    @JsonDeserialize(using = UtcApplicationTimestampDeserializer.class)
+    private OffsetDateTime appliedAt;
+    @JsonDeserialize(using = UtcApplicationTimestampDeserializer.class)
+    private OffsetDateTime applicationUpdatedAt;
 
     public Job() {
     }
@@ -385,19 +387,20 @@ public class Job {
         this.coverLetterDocumentId = coverLetterDocumentId;
     }
 
-    public LocalDateTime getAppliedAt() {
+    public OffsetDateTime getAppliedAt() {
         return appliedAt;
     }
 
-    public void setAppliedAt(LocalDateTime appliedAt) {
+    public void setAppliedAt(OffsetDateTime appliedAt) {
         this.appliedAt = appliedAt;
     }
 
-    public LocalDateTime getApplicationUpdatedAt() {
+    public OffsetDateTime getApplicationUpdatedAt() {
         return applicationUpdatedAt;
     }
 
-    public void setApplicationUpdatedAt(LocalDateTime applicationUpdatedAt) {
+    public void setApplicationUpdatedAt(
+            OffsetDateTime applicationUpdatedAt) {
         this.applicationUpdatedAt = applicationUpdatedAt;
     }
 }

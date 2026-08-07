@@ -1,8 +1,11 @@
 package com.jobseekercopilot.jobservice.model.dto;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -14,7 +17,9 @@ import org.junit.jupiter.api.Test;
 class CanonicalJobModelTest {
 
     private final ObjectMapper objectMapper =
-            new ObjectMapper().findAndRegisterModules();
+            new ObjectMapper()
+                    .findAndRegisterModules()
+                    .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     @Test
     void minimalModelSerializesExplicitUnknownsAndEmptyCollections()
@@ -158,6 +163,70 @@ class CanonicalJobModelTest {
         assertThat(roundTripped.getFieldProvenance()).singleElement()
                 .extracting(JobFieldProvenance::getRuleVersion)
                 .isEqualTo("workplace-v2");
+    }
+
+    @Test
+    void legacyUtcApplicationTimestampsSerializeWithContractRequiredOffset()
+            throws Exception {
+        Job job = objectMapper.readValue(
+                """
+                {
+                  "applicationStatus": "APPLIED",
+                  "applicationId": "1d4fe4de-dc83-4bdc-b66e-951f54c2e5a8",
+                  "appliedAt": "2026-07-29T21:23:45.703864",
+                  "applicationUpdatedAt": "2026-07-29T22:23:45.703864"
+                }
+                """,
+                Job.class);
+
+        assertThat(job.getAppliedAt())
+                .isEqualTo(OffsetDateTime.parse(
+                        "2026-07-29T21:23:45.703864Z"));
+        assertThat(job.getApplicationUpdatedAt())
+                .isEqualTo(OffsetDateTime.parse(
+                        "2026-07-29T22:23:45.703864Z"));
+
+        ObjectNode json = objectMapper.valueToTree(job);
+        assertThat(json.path("applicationStatus").asText())
+                .isEqualTo("APPLIED");
+        assertThat(json.path("applicationId").asText())
+                .isEqualTo("1d4fe4de-dc83-4bdc-b66e-951f54c2e5a8");
+        assertThat(json.path("appliedAt").asText())
+                .isEqualTo("2026-07-29T21:23:45.703864Z");
+        assertThat(json.path("applicationUpdatedAt").asText())
+                .isEqualTo("2026-07-29T22:23:45.703864Z");
+    }
+
+    @Test
+    void applicationTimestampOffsetsAreNormalisedToUtc()
+            throws Exception {
+        Job job = objectMapper.readValue(
+                """
+                {
+                  "appliedAt": "2026-07-29T23:23:45.703864+01:00"
+                }
+                """,
+                Job.class);
+
+        assertThat(job.getAppliedAt())
+                .isEqualTo(OffsetDateTime.parse(
+                        "2026-07-29T22:23:45.703864Z"));
+    }
+
+    @Test
+    void malformedApplicationTimestampsAreRejected() {
+        assertThatThrownBy(() -> objectMapper.readValue(
+                """
+                {"applicationUpdatedAt": "not-a-timestamp"}
+                """,
+                Job.class))
+                .isInstanceOf(JsonProcessingException.class);
+        assertThatThrownBy(() -> objectMapper.readValue(
+                """
+                {"applicationUpdatedAt": 1782813600}
+                """,
+                Job.class))
+                .isInstanceOf(JsonProcessingException.class);
     }
 
     @Test
