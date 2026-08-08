@@ -10,8 +10,10 @@ import com.jobseekercopilot.generated.reedgateway.api.ReedJobsApi;
 import com.jobseekercopilot.generated.reedgateway.model.ExternalJob;
 import com.jobseekercopilot.generated.reedgateway.model.ExternalSalary;
 import com.jobseekercopilot.generated.reedgateway.model.ExternalSearchResponse;
+import com.jobseekercopilot.jobservice.model.dto.AdvertiserType;
 import com.jobseekercopilot.jobservice.model.dto.CanonicalValueStatus;
 import com.jobseekercopilot.jobservice.model.dto.Job;
+import com.jobseekercopilot.jobservice.model.dto.JobDescriptionCompleteness;
 import com.jobseekercopilot.jobservice.model.dto.JobSourceType;
 import com.jobseekercopilot.jobservice.model.dto.SalaryPeriodCode;
 import java.time.OffsetDateTime;
@@ -94,6 +96,10 @@ class ReedJobProviderAdapterTest {
 
         assertThat(jobs).singleElement().satisfies(job -> {
             assertThat(job.getCanonicalSchemaVersion()).isEqualTo("2.0");
+            assertThat(job.getAdvertiserName()).isEqualTo("Example Ltd");
+            assertThat(job.getAdvertiserType()).isEqualTo(AdvertiserType.UNKNOWN);
+            assertThat(job.getDescriptionCompleteness())
+                    .isEqualTo(JobDescriptionCompleteness.PREVIEW);
             assertThat(job.getPostedAtUtc()).isEqualTo(
                     OffsetDateTime.parse("2026-07-24T09:00:00Z"));
             assertThat(job.getCanonicalLocation().getRawDisplayName())
