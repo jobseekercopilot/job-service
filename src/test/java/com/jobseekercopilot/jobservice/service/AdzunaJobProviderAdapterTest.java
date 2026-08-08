@@ -10,6 +10,7 @@ import com.jobseekercopilot.generated.adzunagateway.model.AdzunaSearchRequest;
 import com.jobseekercopilot.generated.adzunagateway.model.AdzunaSearchResponse;
 import com.jobseekercopilot.jobservice.model.dto.CanonicalValueStatus;
 import com.jobseekercopilot.jobservice.model.dto.Job;
+import com.jobseekercopilot.jobservice.model.dto.JobDescriptionCompleteness;
 import com.jobseekercopilot.jobservice.model.dto.JobSourceType;
 import com.jobseekercopilot.jobservice.model.dto.SalaryPeriodCode;
 import java.math.BigDecimal;
@@ -37,6 +38,7 @@ class AdzunaJobProviderAdapterTest {
         providerJob.setLatitude(new BigDecimal("53.4808"));
         providerJob.setLongitude(new BigDecimal("-2.2426"));
         providerJob.setPostedAt("2026-07-24T09:00:00Z");
+        providerJob.setDescription("Provider search-result snippet");
         providerJob.setRedirectUrl("https://example.test/adzuna-42");
 
         AdzunaSearchResponse response = new AdzunaSearchResponse();
@@ -71,6 +73,8 @@ class AdzunaJobProviderAdapterTest {
         });
         assertThat(jobs).singleElement().satisfies(job -> {
             assertThat(job.getExternalJobId()).isEqualTo("adzuna-42");
+            assertThat(job.getDescriptionCompleteness())
+                    .isEqualTo(JobDescriptionCompleteness.PREVIEW);
             assertThat(job.getCanonicalSchemaVersion()).isEqualTo("2.0");
             assertThat(job.getCompanyName()).isEqualTo("Example Ltd");
             assertThat(job.getCanonicalLocation().getLatitude()).isEqualByComparingTo("53.4808");
@@ -99,7 +103,11 @@ class AdzunaJobProviderAdapterTest {
             });
             assertThat(job.getFieldProvenance())
                     .extracting("fieldName")
-                    .contains("employmentType", "contractType", "postedAt");
+                    .contains(
+                            "employmentType",
+                            "contractType",
+                            "description",
+                            "postedAt");
         });
     }
 }

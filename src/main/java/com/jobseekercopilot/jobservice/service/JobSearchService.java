@@ -225,6 +225,24 @@ public class JobSearchService {
         return response;
     }
 
+    public Job getJobDetails(
+            String userId,
+            String provider,
+            String externalJobId) {
+        if (provider == null || provider.isBlank()) {
+            throw new IllegalArgumentException("Provider is required");
+        }
+        if (externalJobId == null || externalJobId.isBlank()) {
+            throw new IllegalArgumentException("External job ID is required");
+        }
+        return providerSearchCoordinator.details(
+                        userId,
+                        provider,
+                        externalJobId)
+                .orElseThrow(() -> new JobNotFoundException(
+                        "Job details are not available"));
+    }
+
     private RolePage page(
             RoleSearchResult result,
             int page,
@@ -820,6 +838,12 @@ public class JobSearchService {
     private record CacheEntry(Instant createdAt, ProviderSearchResult result) {
         boolean expired(int ttlMinutes) {
             return createdAt.plusSeconds((long) ttlMinutes * 60).isBefore(Instant.now());
+        }
+    }
+
+    public static class JobNotFoundException extends RuntimeException {
+        public JobNotFoundException(String message) {
+            super(message);
         }
     }
 

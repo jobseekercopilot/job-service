@@ -18,9 +18,40 @@ import com.jobseekercopilot.jobservice.model.dto.JobSourceType;
 import com.jobseekercopilot.jobservice.model.dto.SalaryPeriodCode;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 class ReedJobProviderAdapterTest {
+
+    @Test
+    void hydratesASelectedJobWithTheCompleteProviderDescription() {
+        ReedJobsApi reedJobsApi = mock(ReedJobsApi.class);
+        ExternalJob details = new ExternalJob();
+        details.setId("reed-42");
+        details.setTitle("Software Developer");
+        details.setCompany("Example Ltd");
+        details.setDescription("Complete provider job description");
+        when(reedJobsApi.jobDetails("reed-42", "user-1"))
+                .thenReturn(details);
+        ReedJobProviderAdapter adapter = new ReedJobProviderAdapter(
+                reedJobsApi,
+                new PublisherNormalisationService(),
+                true,
+                1,
+                25);
+
+        Optional<Job> job = adapter.details("user-1", "reed-42");
+
+        assertThat(job).hasValueSatisfying(value -> {
+            assertThat(value.getDescription())
+                    .isEqualTo("Complete provider job description");
+            assertThat(value.getDescriptionCompleteness())
+                    .isEqualTo(JobDescriptionCompleteness.FULL);
+            assertThat(value.getFieldProvenance())
+                    .extracting("fieldName")
+                    .contains("description");
+        });
+    }
 
     @Test
     void returnsEmptyJobsForHealthyZeroResultGatewayResponse() {

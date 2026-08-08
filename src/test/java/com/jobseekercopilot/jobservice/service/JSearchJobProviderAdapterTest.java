@@ -15,6 +15,7 @@ import com.jobseekercopilot.generated.jsearchgateway.model.JSearchSearchResponse
 import com.jobseekercopilot.jobservice.model.dto.Aspirations;
 import com.jobseekercopilot.jobservice.model.dto.CanonicalValueStatus;
 import com.jobseekercopilot.jobservice.model.dto.Job;
+import com.jobseekercopilot.jobservice.model.dto.JobDescriptionCompleteness;
 import com.jobseekercopilot.jobservice.model.dto.JobSearchRequest;
 import com.jobseekercopilot.jobservice.model.dto.WorkplaceTypeCode;
 import java.math.BigDecimal;
@@ -68,6 +69,7 @@ class JSearchJobProviderAdapterTest {
         providerJob.setPostedAt("2026-07-24T09:00:00Z");
         providerJob.setExpiresAt("2026-08-24T09:00:00Z");
         providerJob.setRemote(true);
+        providerJob.setDescription("Complete JSearch job description");
         providerJob.setPrimaryApplyUrl("https://example.test/listing");
         providerJob.setApplyOptions(List.of(directOption));
 
@@ -86,6 +88,8 @@ class JSearchJobProviderAdapterTest {
 
         assertThat(jobs).singleElement().satisfies(job -> {
             assertThat(job.getExternalJobId()).isEqualTo("jsearch-42");
+            assertThat(job.getDescriptionCompleteness())
+                    .isEqualTo(JobDescriptionCompleteness.FULL);
             assertThat(job.getCanonicalSchemaVersion()).isEqualTo("2.0");
             assertThat(job.getCompanyName()).isEqualTo("Example Ltd");
             assertThat(job.getCanonicalLocation().getLatitude()).isEqualByComparingTo("51.5074");
@@ -125,6 +129,9 @@ class JSearchJobProviderAdapterTest {
                         assertThat(provenance.getNormalisedValue())
                                 .isEqualTo("REMOTE");
                     });
+            assertThat(job.getFieldProvenance())
+                    .extracting("fieldName")
+                    .contains("description");
         });
     }
 

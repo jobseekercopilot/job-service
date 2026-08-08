@@ -7,6 +7,8 @@ import java.net.SocketTimeoutException;
 import java.net.http.HttpConnectTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -39,6 +41,18 @@ public class ProviderSearchCoordinator {
         this.providerAdapters = providerAdapters;
         this.executor = executor;
         this.resilience = resilience;
+    }
+
+    Optional<Job> details(
+            String userId,
+            String provider,
+            String externalJobId) {
+        String canonicalProvider = provider.trim().toUpperCase(Locale.ROOT);
+        return providerAdapters.stream()
+                .filter(JobProviderAdapter::isEnabled)
+                .filter(adapter -> adapter.provider().equals(canonicalProvider))
+                .findFirst()
+                .flatMap(adapter -> adapter.details(userId, externalJobId));
     }
 
     ProviderFanOutResult search(
