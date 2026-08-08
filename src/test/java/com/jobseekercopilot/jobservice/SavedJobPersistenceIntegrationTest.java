@@ -5,7 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.jobseekercopilot.jobservice.model.dto.AdvertiserType;
 import com.jobseekercopilot.jobservice.model.dto.Job;
+import com.jobseekercopilot.jobservice.model.dto.JobDescriptionCompleteness;
 import com.jobseekercopilot.jobservice.model.dto.JobSourceReference;
 import com.jobseekercopilot.jobservice.repository.SavedJobRepository;
 import com.jobseekercopilot.jobservice.repository.SavedJobSnapshotRepository;
@@ -130,6 +132,35 @@ class SavedJobPersistenceIntegrationTest {
         assertEquals(
                 saved.savedJob().contentVersion(),
                 "sha256:" + saved.savedJob().contentSha256());
+    }
+
+    @Test
+    void preservesConfirmedAdvertAndHiringPartyContextInTheImmutableSnapshot() {
+        Job job = job(
+                "canonical-" + UUID.randomUUID(),
+                "Complete responsibilities, requirements and application details.");
+        job.setAdvertiserName("Harnham");
+        job.setAdvertiserType(AdvertiserType.RECRUITER);
+        job.setHiringOrganisationName(null);
+        job.setApplicationContactName("Molly Bird");
+        job.setDescriptionCompleteness(
+                JobDescriptionCompleteness.USER_CONFIRMED);
+
+        SavedJobSaveResult saved = service.save(
+                "owner-" + UUID.randomUUID(),
+                job);
+
+        assertEquals("Harnham", saved.savedJob().job().getAdvertiserName());
+        assertEquals(
+                AdvertiserType.RECRUITER,
+                saved.savedJob().job().getAdvertiserType());
+        assertNull(saved.savedJob().job().getHiringOrganisationName());
+        assertEquals(
+                "Molly Bird",
+                saved.savedJob().job().getApplicationContactName());
+        assertEquals(
+                JobDescriptionCompleteness.USER_CONFIRMED,
+                saved.savedJob().job().getDescriptionCompleteness());
     }
 
     @Test

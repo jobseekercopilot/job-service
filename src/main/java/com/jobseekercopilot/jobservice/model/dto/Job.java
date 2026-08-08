@@ -20,6 +20,10 @@ public class Job {
     private String jobTitle;
     private String company;
     private String companyName;
+    private String advertiserName;
+    private AdvertiserType advertiserType = AdvertiserType.UNKNOWN;
+    private String hiringOrganisationName;
+    private String applicationContactName;
     private String location;
     private CanonicalLocation canonicalLocation;
     private JobSalary salary;
@@ -39,6 +43,8 @@ public class Job {
     private Double distanceMiles;
     private Boolean remote;
     private String description;
+    private JobDescriptionCompleteness descriptionCompleteness =
+            JobDescriptionCompleteness.UNKNOWN;
     private String url;
     private String sourceUrl;
     private List<JobSourceReference> sources = new ArrayList<>();
@@ -140,6 +146,40 @@ public class Job {
 
     public void setCompanyName(String companyName) {
         this.companyName = companyName;
+    }
+
+    public String getAdvertiserName() {
+        return advertiserName;
+    }
+
+    public void setAdvertiserName(String advertiserName) {
+        this.advertiserName = advertiserName;
+    }
+
+    public AdvertiserType getAdvertiserType() {
+        return advertiserType;
+    }
+
+    public void setAdvertiserType(AdvertiserType advertiserType) {
+        this.advertiserType = advertiserType == null
+                ? AdvertiserType.UNKNOWN
+                : advertiserType;
+    }
+
+    public String getHiringOrganisationName() {
+        return hiringOrganisationName;
+    }
+
+    public void setHiringOrganisationName(String hiringOrganisationName) {
+        this.hiringOrganisationName = hiringOrganisationName;
+    }
+
+    public String getApplicationContactName() {
+        return applicationContactName;
+    }
+
+    public void setApplicationContactName(String applicationContactName) {
+        this.applicationContactName = applicationContactName;
     }
 
     public String getLocation() {
@@ -292,6 +332,17 @@ public class Job {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public JobDescriptionCompleteness getDescriptionCompleteness() {
+        return descriptionCompleteness;
+    }
+
+    public void setDescriptionCompleteness(
+            JobDescriptionCompleteness descriptionCompleteness) {
+        this.descriptionCompleteness = descriptionCompleteness == null
+                ? JobDescriptionCompleteness.UNKNOWN
+                : descriptionCompleteness;
     }
 
     public String getUrl() {

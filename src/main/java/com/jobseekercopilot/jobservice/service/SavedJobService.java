@@ -161,6 +161,18 @@ public class SavedJobService {
                 firstText(candidate.getCompanyName(), candidate.getCompany()),
                 "companyName",
                 MAX_COMPANY_LENGTH);
+        String advertiserName = optionalBounded(
+                firstText(candidate.getAdvertiserName(), company),
+                "advertiserName",
+                MAX_COMPANY_LENGTH);
+        String hiringOrganisationName = optionalBounded(
+                candidate.getHiringOrganisationName(),
+                "hiringOrganisationName",
+                MAX_COMPANY_LENGTH);
+        String applicationContactName = optionalBounded(
+                candidate.getApplicationContactName(),
+                "applicationContactName",
+                MAX_COMPANY_LENGTH);
         requireBounded(
                 candidate.getDescription(),
                 "description",
@@ -181,6 +193,21 @@ public class SavedJobService {
         snapshot.put("jobTitle", title);
         snapshot.put("companyName", company);
         snapshot.put("company", company);
+        snapshot.put("advertiserName", advertiserName);
+        snapshot.put("advertiserType", candidate.getAdvertiserType().name());
+        if (hiringOrganisationName == null) {
+            snapshot.remove("hiringOrganisationName");
+        } else {
+            snapshot.put("hiringOrganisationName", hiringOrganisationName);
+        }
+        if (applicationContactName == null) {
+            snapshot.remove("applicationContactName");
+        } else {
+            snapshot.put("applicationContactName", applicationContactName);
+        }
+        snapshot.put(
+                "descriptionCompleteness",
+                candidate.getDescriptionCompleteness().name());
         for (String mutableField : new String[] {
                 "matchScore",
                 "distanceMiles",
@@ -299,6 +326,17 @@ public class SavedJobService {
             throw new IllegalArgumentException(field + " is invalid.");
         }
         return required;
+    }
+
+    private String optionalBounded(String value, String field, int maximum) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        String bounded = value.trim();
+        if (bounded.length() > maximum || containsControl(bounded)) {
+            throw new IllegalArgumentException(field + " is invalid.");
+        }
+        return bounded;
     }
 
     private String requireText(String value, String message) {

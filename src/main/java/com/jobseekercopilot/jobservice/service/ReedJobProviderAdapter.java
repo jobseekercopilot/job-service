@@ -4,18 +4,19 @@ import com.jobseekercopilot.generated.reedgateway.api.ReedJobsApi;
 import com.jobseekercopilot.generated.reedgateway.model.ExternalJob;
 import com.jobseekercopilot.generated.reedgateway.model.ExternalSearchRequest;
 import com.jobseekercopilot.generated.reedgateway.model.ExternalSearchResponse;
+import com.jobseekercopilot.jobservice.model.dto.AdvertiserType;
 import com.jobseekercopilot.jobservice.model.dto.CanonicalLocation;
 import com.jobseekercopilot.jobservice.model.dto.CanonicalValueStatus;
 import com.jobseekercopilot.jobservice.model.dto.Job;
+import com.jobseekercopilot.jobservice.model.dto.JobDescriptionCompleteness;
 import com.jobseekercopilot.jobservice.model.dto.JobSalary;
 import com.jobseekercopilot.jobservice.model.dto.JobSourceReference;
 import com.jobseekercopilot.jobservice.model.dto.JobSourceType;
 import com.jobseekercopilot.jobservice.model.dto.SalaryPeriodCode;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
 import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 @Component
 public class ReedJobProviderAdapter implements JobProviderAdapter {
@@ -77,6 +78,8 @@ public class ReedJobProviderAdapter implements JobProviderAdapter {
         target.setJobTitle(source.getTitle());
         target.setCompany(source.getCompany());
         target.setCompanyName(source.getCompany());
+        target.setAdvertiserName(source.getCompany());
+        target.setAdvertiserType(AdvertiserType.UNKNOWN);
         target.setLocation(source.getLocation());
         CanonicalLocation location = new CanonicalLocation();
         location.setRawDisplayName(source.getLocation());
@@ -103,6 +106,7 @@ public class ReedJobProviderAdapter implements JobProviderAdapter {
                 CanonicalJobMappingSupport.parseOffsetDateTime(
                         source.getPostedDate()));
         target.setDescription(source.getDescription());
+        target.setDescriptionCompleteness(JobDescriptionCompleteness.PREVIEW);
         String safeSourceUrl =
                 CanonicalUrlPolicy.safeHttpUrl(source.getUrl());
         target.setUrl(safeSourceUrl);
