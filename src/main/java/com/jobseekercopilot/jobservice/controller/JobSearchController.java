@@ -1,6 +1,7 @@
 package com.jobseekercopilot.jobservice.controller;
 
 import com.jobseekercopilot.jobservice.model.dto.ErrorResponse;
+import com.jobseekercopilot.jobservice.model.dto.Job;
 import com.jobseekercopilot.jobservice.model.dto.JobSearchRequest;
 import com.jobseekercopilot.jobservice.model.dto.ReedJobSearchResponse;
 import com.jobseekercopilot.jobservice.service.JobSearchService;
@@ -13,6 +14,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -45,11 +48,35 @@ public class JobSearchController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/{provider}/{externalJobId}")
+    @Operation(
+            summary = "Get provider job details",
+            description = "Hydrates one selected job from its provider before document generation.",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    public ResponseEntity<Job> getJobDetails(
+            @AuthenticationPrincipal Jwt accessToken,
+            @PathVariable String provider,
+            @PathVariable String externalJobId) {
+        return ResponseEntity.ok(jobSearchService.getJobDetails(
+                accessToken.getSubject(),
+                provider,
+                externalJobId));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ResponseEntity<ErrorResponse> handleBadRequest(IllegalArgumentException ex) {
         ErrorResponse error = new ErrorResponse("INVALID_REQUEST", ex.getMessage());
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(JobSearchService.JobNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ResponseEntity<ErrorResponse> handleNotFound(
+            JobSearchService.JobNotFoundException ex) {
+        ErrorResponse error = new ErrorResponse("JOB_NOT_FOUND", ex.getMessage());
+        return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
     }
 
     @ExceptionHandler(JobSearchService.DownstreamServiceUnavailableException.class)

@@ -7,6 +7,7 @@ import com.jobseekercopilot.generated.adzunagateway.model.AdzunaSearchResponse;
 import com.jobseekercopilot.jobservice.model.dto.CanonicalLocation;
 import com.jobseekercopilot.jobservice.model.dto.CanonicalValueStatus;
 import com.jobseekercopilot.jobservice.model.dto.Job;
+import com.jobseekercopilot.jobservice.model.dto.JobDescriptionCompleteness;
 import com.jobseekercopilot.jobservice.model.dto.JobSalary;
 import com.jobseekercopilot.jobservice.model.dto.JobSourceReference;
 import com.jobseekercopilot.jobservice.model.dto.JobSourceType;
@@ -102,6 +103,11 @@ public class AdzunaJobProviderAdapter implements JobProviderAdapter {
                 CanonicalJobMappingSupport.parseOffsetDateTime(
                         source.getPostedAt()));
         job.setDescription(source.getDescription());
+        job.setDescriptionCompleteness(
+                source.getDescription() == null
+                        || source.getDescription().isBlank()
+                        ? JobDescriptionCompleteness.UNKNOWN
+                        : JobDescriptionCompleteness.PREVIEW);
         String safeSourceUrl =
                 CanonicalUrlPolicy.safeHttpUrl(source.getRedirectUrl());
         job.setUrl(safeSourceUrl);
@@ -130,6 +136,9 @@ public class AdzunaJobProviderAdapter implements JobProviderAdapter {
                 CanonicalJobMappingSupport.rawField(
                         provider(), source.getExternalJobId(), "contractType",
                         source.getContractType()),
+                CanonicalJobMappingSupport.rawField(
+                        provider(), source.getExternalJobId(), "description",
+                        source.getDescription()),
                 CanonicalJobMappingSupport.timestampField(
                         provider(), source.getExternalJobId(), "postedAt",
                         source.getPostedAt(), job.getPostedAtUtc())));

@@ -11,6 +11,41 @@ tags:
 - description: Reed job search endpoints
   name: Reed Jobs
 paths:
+  /api/jobs/{jobId}:
+    get:
+      description: Fetches one Reed job through the provider details API for the authenticated claimant.
+      operationId: jobDetails
+      parameters:
+      - explode: false
+        in: header
+        name: X-User-Id
+        required: false
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: jobId
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ExternalJob"
+          description: Job details returned
+        "401":
+          description: Missing X-User-Id header
+        "404":
+          description: Job not found
+      summary: Get complete Reed job details for generation
+      tags:
+      - Reed Jobs
+      x-accepts:
+      - '*/*'
   /api/jobs/external-search:
     post:
       description: Internal gateway contract used by job-service.

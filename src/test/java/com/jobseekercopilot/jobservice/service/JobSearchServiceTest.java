@@ -27,6 +27,7 @@ import com.jobseekercopilot.jobservice.model.dto.WorkPreferences;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -53,6 +54,31 @@ class JobSearchServiceTest {
             matchingEnricher,
             resilience,
             10);
+
+    @Test
+    void returnsProviderDetailsForTheAuthenticatedOwner() {
+        Job detail = job("reed-42", "Software Developer", "REED");
+        when(providerSearchCoordinator.details(
+                "user-1", "REED", "reed-42"))
+                .thenReturn(Optional.of(detail));
+
+        Job result = service.getJobDetails(
+                "user-1", "REED", "reed-42");
+
+        assertThat(result).isSameAs(detail);
+    }
+
+    @Test
+    void reportsMissingProviderDetailsWithoutFallingBackToAStalePreview() {
+        when(providerSearchCoordinator.details(
+                "user-1", "REED", "missing"))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getJobDetails(
+                "user-1", "REED", "missing"))
+                .isInstanceOf(JobSearchService.JobNotFoundException.class)
+                .hasMessage("Job details are not available");
+    }
 
     @Test
     void returnsHealthyJobsAndDeterministicPartialStatusWhenOneProviderFails() {

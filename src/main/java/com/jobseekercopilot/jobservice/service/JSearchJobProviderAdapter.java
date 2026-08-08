@@ -8,6 +8,7 @@ import com.jobseekercopilot.generated.jsearchgateway.model.JSearchSearchResponse
 import com.jobseekercopilot.jobservice.model.dto.CanonicalLocation;
 import com.jobseekercopilot.jobservice.model.dto.CanonicalValueStatus;
 import com.jobseekercopilot.jobservice.model.dto.Job;
+import com.jobseekercopilot.jobservice.model.dto.JobDescriptionCompleteness;
 import com.jobseekercopilot.jobservice.model.dto.JobSalary;
 import com.jobseekercopilot.jobservice.model.dto.JobSourceReference;
 import com.jobseekercopilot.jobservice.model.dto.WorkplaceTypeCode;
@@ -167,6 +168,11 @@ public class JSearchJobProviderAdapter implements JobProviderAdapter {
             job.setWorkplaceType(WorkplaceTypeCode.REMOTE);
         }
         job.setDescription(source.getDescription());
+        job.setDescriptionCompleteness(
+                source.getDescription() == null
+                        || source.getDescription().isBlank()
+                        ? JobDescriptionCompleteness.UNKNOWN
+                        : JobDescriptionCompleteness.FULL);
         job.setUrl(primaryApplyUrl(source));
         job.setSourceUrl(primaryApplyUrl(source));
         job.setSources(sourceReferences(source));
@@ -178,6 +184,9 @@ public class JSearchJobProviderAdapter implements JobProviderAdapter {
         provenance.add(CanonicalJobMappingSupport.rawField(
                 provider(), source.getExternalJobId(), "employmentType",
                 source.getEmploymentType()));
+        provenance.add(CanonicalJobMappingSupport.rawField(
+                provider(), source.getExternalJobId(), "description",
+                source.getDescription()));
         provenance.add(CanonicalJobMappingSupport.timestampField(
                 provider(), source.getExternalJobId(), "postedAt",
                 source.getPostedAt(), job.getPostedAtUtc()));

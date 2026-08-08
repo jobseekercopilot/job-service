@@ -15,6 +15,7 @@ import com.jobseekercopilot.jobservice.model.dto.JobSourceType;
 import com.jobseekercopilot.jobservice.model.dto.SalaryPeriodCode;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -64,10 +65,30 @@ public class ReedJobProviderAdapter implements JobProviderAdapter {
         if (response == null || response.getJobs() == null) {
             return List.of();
         }
-        return response.getJobs().stream().map(this::fromDownstreamJob).toList();
+        return response.getJobs().stream()
+                .map(job -> fromDownstreamJob(
+                        job,
+                        JobDescriptionCompleteness.PREVIEW))
+                .toList();
     }
 
-    private Job fromDownstreamJob(ExternalJob source) {
+    @Override
+    public Optional<Job> details(String userId, String externalJobId) {
+        ExternalJob response = reedJobsApi.jobDetails(externalJobId, userId);
+        if (response == null || response.getId() == null) {
+            return Optional.empty();
+        }
+        JobDescriptionCompleteness completeness =
+                response.getDescription() == null
+                        || response.getDescription().isBlank()
+                        ? JobDescriptionCompleteness.UNKNOWN
+                        : JobDescriptionCompleteness.FULL;
+        return Optional.of(fromDownstreamJob(response, completeness));
+    }
+
+    private Job fromDownstreamJob(
+            ExternalJob source,
+            JobDescriptionCompleteness descriptionCompleteness) {
         Job target = new Job();
         target.setId(source.getId());
         target.setCanonicalJobId(source.getId());
@@ -106,7 +127,7 @@ public class ReedJobProviderAdapter implements JobProviderAdapter {
                 CanonicalJobMappingSupport.parseOffsetDateTime(
                         source.getPostedDate()));
         target.setDescription(source.getDescription());
-        target.setDescriptionCompleteness(JobDescriptionCompleteness.PREVIEW);
+        target.setDescriptionCompleteness(descriptionCompleteness);
         String safeSourceUrl =
                 CanonicalUrlPolicy.safeHttpUrl(source.getUrl());
         target.setUrl(safeSourceUrl);
@@ -132,6 +153,9 @@ public class ReedJobProviderAdapter implements JobProviderAdapter {
                 CanonicalJobMappingSupport.rawField(
                         provider(), source.getId(), "employmentType",
                         source.getEmploymentType()),
+                CanonicalJobMappingSupport.rawField(
+                        provider(), source.getId(), "description",
+                        source.getDescription()),
                 CanonicalJobMappingSupport.timestampField(
                         provider(), source.getId(), "postedAt",
                         source.getPostedDate(), target.getPostedAtUtc())));

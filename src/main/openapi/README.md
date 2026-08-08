@@ -7,7 +7,7 @@ producer-owned OpenAPI sources:
 | --- | --- | --- | --- |
 | `adzuna-gateway.yaml` | `a10115b0ab60da26469504d964819d44b2d0d550` | `10391e68dcec30e4fb765bcb3ddaf2150c0cc8b8adc529a11c8bf38fe7ae9331` | `search` |
 | `jsearch-gateway.yaml` | `b7542b74265b9b6fd4cee752b4d9719935ccc3d9` | `abe1984b48939f3c9820b846098bab5f20ee3c9346fb208df172deb9805382ad` | `search` |
-| `reed-gateway.yaml` | `85f3d5ad0117576b0baab08fa0430673a9ba7155` | `7bc588e36fa7ec1b264420f6dc0a278edb933f0ad403eac6473f961dec099568` | `externalSearch` |
+| `reed-gateway.yaml` | `83440f9a8d61c9ba1c53b8b2c4237f614707c6df` | `de1801bb897990ec2e106023429d11744987929291b49a38ec023154ff3e3506` | `externalSearch`, `jobDetails` |
 
 Each `.SOURCE` file records the private producer repository, immutable
 revision, source path, and exact contract checksum. `SHA256SUMS` protects all

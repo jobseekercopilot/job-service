@@ -50,6 +50,8 @@ grep -Eq '^openapi: 3\.0\.[0-9]+$' "$contract"
 grep -F '  version: 2.2.0' "$contract" >/dev/null
 grep -F '  /api/jobs/search:' "$contract" >/dev/null
 grep -F '      operationId: searchJobs' "$contract" >/dev/null
+grep -F '  /api/jobs/{provider}/{externalJobId}:' "$contract" >/dev/null
+grep -F '      operationId: getJobDetails' "$contract" >/dev/null
 grep -F '  /api/jobs/saved:' "$contract" >/dev/null
 grep -F '  /api/jobs/saved/{savedJobId}:' "$contract" >/dev/null
 for operation in list save get unsave; do
