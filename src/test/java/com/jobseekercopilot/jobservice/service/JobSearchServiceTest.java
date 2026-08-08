@@ -14,9 +14,11 @@ import static org.mockito.Mockito.when;
 
 import com.jobseekercopilot.jobservice.config.JobSearchResilienceProperties;
 import com.jobseekercopilot.jobservice.model.dto.Aspirations;
+import com.jobseekercopilot.jobservice.model.dto.AdvertiserType;
 import com.jobseekercopilot.jobservice.model.dto.CanonicalLocation;
 import com.jobseekercopilot.jobservice.model.dto.HomeLocation;
 import com.jobseekercopilot.jobservice.model.dto.Job;
+import com.jobseekercopilot.jobservice.model.dto.JobDescriptionCompleteness;
 import com.jobseekercopilot.jobservice.model.dto.JobSalary;
 import com.jobseekercopilot.jobservice.model.dto.JobSearchRequest;
 import com.jobseekercopilot.jobservice.model.dto.JobSkill;
@@ -309,6 +311,46 @@ class JobSearchServiceTest {
                 });
         verify(providerSearchCoordinator, times(1))
                 .search(any(), any(JobSearchCriteria.class), anySet(), anyLong());
+    }
+
+    @Test
+    void providerCachePreservesAdvertiserAndDescriptionCompleteness() {
+        Job providerJob = job("reed-1", "Developer", "REED");
+        providerJob.setAdvertiserName("Example Recruiter");
+        providerJob.setAdvertiserType(AdvertiserType.RECRUITER);
+        providerJob.setHiringOrganisationName("Example Employer");
+        providerJob.setApplicationContactName("Alex Recruiter");
+        providerJob.setDescriptionCompleteness(
+                JobDescriptionCompleteness.PREVIEW);
+        when(providerSearchCoordinator.search(
+                any(), any(JobSearchCriteria.class), anySet(), anyLong()))
+                .thenReturn(fanOut(
+                        List.of(providerJob),
+                        List.of(status("REED", "SUCCESS", 1)),
+                        true,
+                        true,
+                        true));
+        when(matchingEnricher.enrich(any(), any(), anyLong()))
+                .thenAnswer(invocation ->
+                        new OptionalJobMatchingEnricher.MatchingOutcome(
+                                invocation.getArgument(1),
+                                "COMPLETE",
+                                false));
+
+        var result = service.searchJobs("user-1", request("developer"));
+
+        assertThat(result.getJobs()).singleElement().satisfies(job -> {
+            assertThat(job.getAdvertiserName())
+                    .isEqualTo("Example Recruiter");
+            assertThat(job.getAdvertiserType())
+                    .isEqualTo(AdvertiserType.RECRUITER);
+            assertThat(job.getHiringOrganisationName())
+                    .isEqualTo("Example Employer");
+            assertThat(job.getApplicationContactName())
+                    .isEqualTo("Alex Recruiter");
+            assertThat(job.getDescriptionCompleteness())
+                    .isEqualTo(JobDescriptionCompleteness.PREVIEW);
+        });
     }
 
     @Test

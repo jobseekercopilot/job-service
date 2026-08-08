@@ -653,6 +653,12 @@ public class JobSearchService {
         target.setJobTitle(source.getJobTitle());
         target.setCompany(source.getCompany());
         target.setCompanyName(source.getCompanyName());
+        target.setAdvertiserName(source.getAdvertiserName());
+        target.setAdvertiserType(source.getAdvertiserType());
+        target.setHiringOrganisationName(
+                source.getHiringOrganisationName());
+        target.setApplicationContactName(
+                source.getApplicationContactName());
         target.setLocation(source.getLocation());
         target.setCanonicalLocation(copyLocation(source.getCanonicalLocation()));
         target.setSalary(copySalary(source.getSalary()));
@@ -672,6 +678,8 @@ public class JobSearchService {
         target.setDistanceMiles(source.getDistanceMiles());
         target.setRemote(source.getRemote());
         target.setDescription(source.getDescription());
+        target.setDescriptionCompleteness(
+                source.getDescriptionCompleteness());
         target.setUrl(source.getUrl());
         target.setSourceUrl(source.getSourceUrl());
         target.setSources(source.getSources() == null
