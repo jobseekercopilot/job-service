@@ -1,6 +1,7 @@
 package com.jobseekercopilot.jobservice.service;
 
 import com.jobseekercopilot.jobservice.model.dto.Aspirations;
+import com.jobseekercopilot.jobservice.model.dto.ApprenticeshipDetails;
 import com.jobseekercopilot.jobservice.model.dto.CanonicalLocation;
 import com.jobseekercopilot.jobservice.model.dto.HomeLocation;
 import com.jobseekercopilot.jobservice.model.dto.Job;
@@ -674,6 +675,7 @@ public class JobSearchService {
                 source.getApplicationContactName());
         target.setLocation(source.getLocation());
         target.setCanonicalLocation(copyLocation(source.getCanonicalLocation()));
+        target.setLocations(source.getLocations() == null ? List.of() : source.getLocations().stream().map(this::copyLocation).toList());
         target.setSalary(copySalary(source.getSalary()));
         target.setEmploymentType(source.getEmploymentType());
         target.setEmploymentTypeCode(source.getEmploymentTypeCode());
@@ -681,6 +683,8 @@ public class JobSearchService {
         target.setContractTypeCode(source.getContractTypeCode());
         target.setWorkplaceType(source.getWorkplaceType());
         target.setCategory(source.getCategory());
+        target.setSpecialistType(source.getSpecialistType());
+        target.setApprenticeshipDetails(copyApprenticeshipDetails(source.getApprenticeshipDetails()));
         target.setPostedDate(source.getPostedDate());
         target.setPostedAt(source.getPostedAt());
         target.setExpiresAt(source.getExpiresAt());
@@ -764,6 +768,19 @@ public class JobSearchService {
         target.setNormalisationConfidence(
                 source.getNormalisationConfidence());
         target.setNormalisationMethod(source.getNormalisationMethod());
+        return target;
+    }
+
+    private ApprenticeshipDetails copyApprenticeshipDetails(ApprenticeshipDetails source) {
+        if (source == null) return null;
+        ApprenticeshipDetails target = new ApprenticeshipDetails();
+        target.setCourseTitle(source.getCourseTitle()); target.setCourseLevel(source.getCourseLevel()); target.setCourseLarsCode(source.getCourseLarsCode());
+        target.setCourseRoute(source.getCourseRoute()); target.setApprenticeshipLevel(source.getApprenticeshipLevel()); target.setTrainingProvider(source.getTrainingProvider());
+        target.setStartDate(source.getStartDate()); target.setDuration(source.getDuration()); target.setHoursPerWeek(source.getHoursPerWeek()); target.setNumberOfPositions(source.getNumberOfPositions());
+        target.setWageType(source.getWageType()); target.setWageAdditionalInformation(source.getWageAdditionalInformation()); target.setWorkingWeekDescription(source.getWorkingWeekDescription());
+        target.setNationalVacancy(source.getNationalVacancy()); target.setNationalVacancyDetails(source.getNationalVacancyDetails());
+        target.setQualifications(source.getQualifications() == null ? List.of() : List.copyOf(source.getQualifications()));
+        target.setThingsToConsider(source.getThingsToConsider()); target.setCompanyBenefitsInformation(source.getCompanyBenefitsInformation());
         return target;
     }
 

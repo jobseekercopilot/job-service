@@ -46,6 +46,10 @@ services:
     url: ${ADZUNA_GATEWAY_URL:http://adzuna-gateway:8101}
   jsearch-gateway:
     url: ${JSEARCH_GATEWAY_URL:http://jsearch-gateway:8102}
+  nhs-jobs-gateway:
+    url: ${NHS_JOBS_GATEWAY_URL:http://nhs-jobs-gateway:8104}
+  apprenticeships-gateway:
+    url: ${APPRENTICESHIPS_GATEWAY_URL:http://apprenticeships-gateway:8105}
   job-matching-service:
     base-url: ${JOB_MATCHING_SERVICE_URL:http://localhost:8097}
 
@@ -59,6 +63,12 @@ providers:
     enabled: ${JSEARCH_ENABLED:true}
     # Cursor traversal is deliberately capped to prevent unbounded provider calls.
     max-cursor-pages: ${JSEARCH_MAX_CURSOR_PAGES:2}
+  nhs-jobs:
+    enabled: ${NHS_JOBS_ENABLED:true}
+    results-per-page: ${NHS_JOBS_RESULTS_PER_PAGE:50}
+  apprenticeships:
+    enabled: ${APPRENTICESHIPS_ENABLED:true}
+    results-per-page: ${APPRENTICESHIPS_RESULTS_PER_PAGE:50}
 
 job-search:
   default-distance: 25

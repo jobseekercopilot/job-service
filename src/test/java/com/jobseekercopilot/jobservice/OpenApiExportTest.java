@@ -40,7 +40,10 @@ class OpenApiExportTest {
 
         assertTrue(contract.contains("/api/jobs/saved"));
         assertTrue(contract.contains("SavedJobResponse"));
-        assertTrue(contract.contains("version: 2.2.0"));
+        assertTrue(contract.contains("version: 2.3.0"));
+        assertTrue(contract.contains("ApprenticeshipDetails:"));
+        assertTrue(contract.contains("APPRENTICESHIP"));
+        assertTrue(contract.contains("OFFICIAL_PROVIDER"));
         assertTrue(contract.contains("pageSize:"));
         assertTrue(contract.contains("totalPages:"));
         assertTrue(contract.contains("TargetRoleJobResults:"));

@@ -1,0 +1,4 @@
+repository=jobseekercopilot/apprenticeships-gateway
+revision=82e9db4ef317c6e4e90009e46fb9f6205d6d30dd
+path=api/openapi.yaml
+sha256=94605132443e2dcc5872c2cc62df39ec7575960845211d6277f3c5f7b3ef9b2e

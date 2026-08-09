@@ -67,7 +67,7 @@ budgets and operator guidance are documented in
 
 ## Canonical Job compatibility
 
-API version 2.2.0 publishes canonical Job schema version 2.0, bounded
+API version 2.3.0 publishes canonical Job schema version 2.0, bounded
 target-role Job Search paging/sorting and the owner-scoped saved-job resource.
 Each `resultsByTargetRole` item owns its page totals, provider outcomes, search
 status and matching status. The legacy top-level fields remain a flattened
@@ -76,6 +76,10 @@ canonical job model
 retains legacy aliases while adding raw and normalised values, explicit unknown
 taxonomies, decimal salary evidence, offset-aware timestamps, complete source
 records, skills, experience and field-level provenance.
+
+Version 2.3 adds official NHS Jobs and Find an apprenticeship sources. The
+canonical job retains a specialist classification, every advertised location,
+official source provenance, and structured apprenticeship training details.
 
 Saved-job responses are server-owned records. `savedJobId`, snapshot version,
 content digest, capture/retrieval timestamps and source state must never be

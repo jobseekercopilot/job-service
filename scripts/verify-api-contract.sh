@@ -47,7 +47,7 @@ test -f "$contract" && test ! -L "$contract" || {
 }
 
 grep -Eq '^openapi: 3\.0\.[0-9]+$' "$contract"
-grep -F '  version: 2.2.0' "$contract" >/dev/null
+grep -F '  version: 2.3.0' "$contract" >/dev/null
 grep -F '  /api/jobs/search:' "$contract" >/dev/null
 grep -F '      operationId: searchJobs' "$contract" >/dev/null
 grep -F '  /api/jobs/{provider}/{externalJobId}:' "$contract" >/dev/null
@@ -83,7 +83,8 @@ for property in canonicalSchemaVersion canonicalJobId primarySource externalJobI
         canonicalLocation employmentTypeCode contractTypeCode workplaceType \
         postedAtUtc expiresAtUtc applicationDeadlineAtUtc sourceUrl sources \
         skills experience fieldProvenance applicationStatus applicationId \
-        cvDocumentId coverLetterDocumentId appliedAt applicationUpdatedAt; do
+        cvDocumentId coverLetterDocumentId appliedAt applicationUpdatedAt \
+        specialistType locations apprenticeshipDetails; do
     grep -F "        $property:" "$job_schema" >/dev/null
 done
 

@@ -64,4 +64,18 @@ public class JobSearchCriteria {
     public boolean isRemoteOnly() {
         return remoteOnly;
     }
+
+    public Double getHomeLatitude() {
+        if (request != null && request.getHomeLocation() != null && request.getHomeLocation().getLatitude() != null) return request.getHomeLocation().getLatitude();
+        return request == null || request.getWorkPreferences() == null ? null : request.getWorkPreferences().getHomeLatitude();
+    }
+
+    public Double getHomeLongitude() {
+        if (request != null && request.getHomeLocation() != null && request.getHomeLocation().getLongitude() != null) return request.getHomeLocation().getLongitude();
+        return request == null || request.getWorkPreferences() == null ? null : request.getWorkPreferences().getHomeLongitude();
+    }
+
+    public String getCountryCode() {
+        return request == null || request.getHomeLocation() == null ? null : request.getHomeLocation().getCountryCode();
+    }
 }

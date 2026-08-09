@@ -1,0 +1,52 @@
+openapi: 3.0.3
+info: {title: NHS Jobs Gateway API, version: 1.0.0}
+paths:
+  /api/v1/nhs-jobs/jobs/search:
+    post:
+      tags: [NhsJobs]
+      operationId: search
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/NhsJobsSearchRequest'}}}}
+      responses: {'200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/NhsJobsSearchResponse'}}}}}
+components:
+  schemas:
+    NhsJobsSearchRequest:
+      type: object
+      properties:
+        targetRole: {type: string}
+        location: {type: string}
+        distanceMiles: {type: integer, format: int32}
+        countryCode: {type: string}
+        contractTypes: {type: array, items: {type: string}}
+        workingPatterns: {type: array, items: {type: string}}
+        salaryMinimum: {type: integer, format: int32}
+        salaryMaximum: {type: integer, format: int32}
+        postedWithinDays: {type: integer, format: int32}
+        page: {type: integer, format: int32}
+        resultsPerPage: {type: integer, format: int32}
+    NhsJob:
+      type: object
+      properties:
+        externalJobId: {type: string}
+        reference: {type: string}
+        title: {type: string}
+        employer: {type: string}
+        description: {type: string}
+        locations: {type: array, items: {type: string}}
+        salaryText: {type: string}
+        salaryMinimum: {type: number}
+        salaryMaximum: {type: number}
+        salaryCurrency: {type: string}
+        salaryPeriod: {type: string}
+        contractType: {type: string}
+        postedAt: {type: string}
+        closingDate: {type: string}
+        sourceUrl: {type: string}
+    NhsJobsSearchResponse:
+      type: object
+      properties:
+        provider: {type: string}
+        totalAvailable: {type: integer, format: int32}
+        totalPages: {type: integer, format: int32}
+        page: {type: integer, format: int32}
+        resultsPerPage: {type: integer, format: int32}
+        jobs: {type: array, items: {$ref: '#/components/schemas/NhsJob'}}
