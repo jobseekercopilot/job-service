@@ -3,6 +3,7 @@ package com.jobseekercopilot.jobservice.service;
 import com.jobseekercopilot.jobservice.model.dto.Job;
 import com.jobseekercopilot.jobservice.model.dto.JobSalary;
 import com.jobseekercopilot.jobservice.model.dto.JobSourceReference;
+import com.jobseekercopilot.jobservice.model.dto.WorkplaceTypeCode;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -94,6 +95,8 @@ public class JobDeduplicationService {
         primary.setSalary(preferredSalary(primary.getSalary(), duplicate.getSalary()));
         primary.setEmploymentType(firstNonBlank(primary.getEmploymentType(), duplicate.getEmploymentType()));
         primary.setContractType(firstNonBlank(primary.getContractType(), duplicate.getContractType()));
+        primary.setWorkplaceType(preferredWorkplaceType(
+                primary.getWorkplaceType(), duplicate.getWorkplaceType()));
         primary.setCategory(firstNonBlank(primary.getCategory(), duplicate.getCategory()));
         if (primary.getSpecialistType() == null || primary.getSpecialistType() == com.jobseekercopilot.jobservice.model.dto.JobSpecialistType.STANDARD) {
             primary.setSpecialistType(duplicate.getSpecialistType());
@@ -250,6 +253,15 @@ public class JobDeduplicationService {
 
     private boolean hasCoordinates(com.jobseekercopilot.jobservice.model.dto.CanonicalLocation location) {
         return location != null && location.getLatitude() != null && location.getLongitude() != null;
+    }
+
+    private WorkplaceTypeCode preferredWorkplaceType(
+            WorkplaceTypeCode primary,
+            WorkplaceTypeCode duplicate) {
+        if (primary != null && primary != WorkplaceTypeCode.UNKNOWN) {
+            return primary;
+        }
+        return duplicate == null ? WorkplaceTypeCode.UNKNOWN : duplicate;
     }
 
     private String preferredApplyUrl(Job primary, Job duplicate) {

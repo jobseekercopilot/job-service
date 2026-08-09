@@ -13,6 +13,7 @@ import com.jobseekercopilot.jobservice.model.dto.Job;
 import com.jobseekercopilot.jobservice.model.dto.JobDescriptionCompleteness;
 import com.jobseekercopilot.jobservice.model.dto.JobSourceType;
 import com.jobseekercopilot.jobservice.model.dto.SalaryPeriodCode;
+import com.jobseekercopilot.jobservice.model.dto.WorkplaceTypeCode;
 import java.math.BigDecimal;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -39,6 +40,7 @@ class AdzunaJobProviderAdapterTest {
         providerJob.setLongitude(new BigDecimal("-2.2426"));
         providerJob.setPostedAt("2026-07-24T09:00:00Z");
         providerJob.setDescription("Provider search-result snippet");
+        providerJob.setRemoteType("HYBRID");
         providerJob.setRedirectUrl("https://example.test/adzuna-42");
 
         AdzunaSearchResponse response = new AdzunaSearchResponse();
@@ -88,6 +90,7 @@ class AdzunaJobProviderAdapterTest {
             assertThat(job.getSalary().getPeriodCode())
                     .isEqualTo(SalaryPeriodCode.YEAR);
             assertThat(job.getSalary().getPredicted()).isTrue();
+            assertThat(job.getWorkplaceType()).isEqualTo(WorkplaceTypeCode.HYBRID);
             assertThat(job.getPostedAtUtc()).isEqualTo(
                     java.time.OffsetDateTime.parse(
                             "2026-07-24T09:00:00Z"));
@@ -106,6 +109,7 @@ class AdzunaJobProviderAdapterTest {
                     .contains(
                             "employmentType",
                             "contractType",
+                            "workplaceType",
                             "description",
                             "postedAt");
         });

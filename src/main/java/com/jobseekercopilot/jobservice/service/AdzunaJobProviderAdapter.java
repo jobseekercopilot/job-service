@@ -12,6 +12,7 @@ import com.jobseekercopilot.jobservice.model.dto.JobSalary;
 import com.jobseekercopilot.jobservice.model.dto.JobSourceReference;
 import com.jobseekercopilot.jobservice.model.dto.JobSourceType;
 import com.jobseekercopilot.jobservice.model.dto.SalaryPeriodCode;
+import com.jobseekercopilot.jobservice.model.dto.WorkplaceTypeCode;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -96,6 +97,7 @@ public class AdzunaJobProviderAdapter implements JobProviderAdapter {
         }
         job.setEmploymentType(source.getEmploymentType());
         job.setContractType(source.getContractType());
+        job.setWorkplaceType(workplaceType(source.getRemoteType()));
         job.setCategory(source.getCategory());
         job.setPostedDate(source.getPostedAt());
         job.setPostedAt(source.getPostedAt());
@@ -136,6 +138,14 @@ public class AdzunaJobProviderAdapter implements JobProviderAdapter {
                 CanonicalJobMappingSupport.rawField(
                         provider(), source.getExternalJobId(), "contractType",
                         source.getContractType()),
+                source.getRemoteType() == null || source.getRemoteType().isBlank()
+                        ? CanonicalJobMappingSupport.rawField(
+                                provider(), source.getExternalJobId(),
+                                "workplaceType", null)
+                        : CanonicalJobMappingSupport.normalisedField(
+                                provider(), source.getExternalJobId(),
+                                "workplaceType", source.getRemoteType(),
+                                job.getWorkplaceType()),
                 CanonicalJobMappingSupport.rawField(
                         provider(), source.getExternalJobId(), "description",
                         source.getDescription()),
@@ -143,6 +153,18 @@ public class AdzunaJobProviderAdapter implements JobProviderAdapter {
                         provider(), source.getExternalJobId(), "postedAt",
                         source.getPostedAt(), job.getPostedAtUtc())));
         return job;
+    }
+
+    private WorkplaceTypeCode workplaceType(String value) {
+        if (value == null || value.isBlank()) {
+            return WorkplaceTypeCode.UNKNOWN;
+        }
+        return switch (value.trim().toUpperCase(java.util.Locale.ROOT)) {
+            case "ONSITE", "ON_SITE" -> WorkplaceTypeCode.ON_SITE;
+            case "HYBRID" -> WorkplaceTypeCode.HYBRID;
+            case "REMOTE" -> WorkplaceTypeCode.REMOTE;
+            default -> WorkplaceTypeCode.UNKNOWN;
+        };
     }
 
     private LocalDateTime parseDateTime(String value) {
