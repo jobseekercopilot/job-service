@@ -52,6 +52,7 @@ public class Job {
     private JobExperience experience = new JobExperience();
     private List<JobFieldProvenance> fieldProvenance = new ArrayList<>();
     private Double matchScore;
+    private CommuteAssessment commuteAssessment;
     private String applicationStatus;
     private UUID applicationId;
     private String cvDocumentId;
@@ -60,6 +61,9 @@ public class Job {
     private OffsetDateTime appliedAt;
     @JsonDeserialize(using = UtcApplicationTimestampDeserializer.class)
     private OffsetDateTime applicationUpdatedAt;
+
+    public CommuteAssessment getCommuteAssessment() { return commuteAssessment; }
+    public void setCommuteAssessment(CommuteAssessment commuteAssessment) { this.commuteAssessment = commuteAssessment; }
 
     public Job() {
     }

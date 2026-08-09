@@ -211,6 +211,7 @@ public class SavedJobService {
         for (String mutableField : new String[] {
                 "matchScore",
                 "distanceMiles",
+                "commuteAssessment",
                 "applicationStatus",
                 "applicationId",
                 "cvDocumentId",

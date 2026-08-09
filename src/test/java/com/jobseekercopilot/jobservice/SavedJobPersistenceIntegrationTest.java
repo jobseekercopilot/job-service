@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.jobseekercopilot.jobservice.model.dto.AdvertiserType;
 import com.jobseekercopilot.jobservice.model.dto.Job;
+import com.jobseekercopilot.jobservice.model.dto.CommuteAssessment;
 import com.jobseekercopilot.jobservice.model.dto.JobDescriptionCompleteness;
 import com.jobseekercopilot.jobservice.model.dto.JobSourceReference;
 import com.jobseekercopilot.jobservice.repository.SavedJobRepository;
@@ -55,6 +56,12 @@ class SavedJobPersistenceIntegrationTest {
         firstSnapshot.setApplicationId(UUID.randomUUID());
         firstSnapshot.setMatchScore(0.98);
         firstSnapshot.setDistanceMiles(1.5);
+        CommuteAssessment commuteAssessment = new CommuteAssessment();
+        commuteAssessment.setProviderAttribution("GOOGLE_MAPS");
+        CommuteAssessment.ModeAssessment mode = new CommuteAssessment.ModeAssessment();
+        mode.setDurationMinutes(37);
+        commuteAssessment.setModes(List.of(mode));
+        firstSnapshot.setCommuteAssessment(commuteAssessment);
 
         SavedJobSaveResult created = service.save(owner, firstSnapshot);
         SavedJobSaveResult replayed = service.save(owner, firstSnapshot);
@@ -68,6 +75,7 @@ class SavedJobPersistenceIntegrationTest {
         assertNull(replayed.savedJob().job().getApplicationId());
         assertNull(replayed.savedJob().job().getMatchScore());
         assertNull(replayed.savedJob().job().getDistanceMiles());
+        assertNull(replayed.savedJob().job().getCommuteAssessment());
 
         Job changedSnapshot = job(
                 firstSnapshot.getCanonicalJobId(),
