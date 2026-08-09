@@ -5,7 +5,7 @@ producer-owned OpenAPI sources:
 
 | Contract | Producer revision | SHA-256 | Required operation |
 | --- | --- | --- | --- |
-| `adzuna-gateway.yaml` | `a10115b0ab60da26469504d964819d44b2d0d550` | `10391e68dcec30e4fb765bcb3ddaf2150c0cc8b8adc529a11c8bf38fe7ae9331` | `search` |
+| `adzuna-gateway.yaml` | `d57fb6c37c343a8d0bb93ca8f5606978c0fb88a4` | `31c497be3648f12b97cfc166d17a803a2a0390bb59b0a4220356126b3f30bc1b` | `search` |
 | `jsearch-gateway.yaml` | `b7542b74265b9b6fd4cee752b4d9719935ccc3d9` | `abe1984b48939f3c9820b846098bab5f20ee3c9346fb208df172deb9805382ad` | `search` |
 | `reed-gateway.yaml` | `83440f9a8d61c9ba1c53b8b2c4237f614707c6df` | `de1801bb897990ec2e106023429d11744987929291b49a38ec023154ff3e3506` | `externalSearch`, `jobDetails` |
 
