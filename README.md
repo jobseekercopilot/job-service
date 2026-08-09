@@ -1,5 +1,13 @@
 # Job Service
 
+## Role in Job Seeker Copilot
+
+| Role | Called by | Calls | Data | Local port |
+|---|---|---|---|---:|
+| Canonical job search, provider fan-out, normalisation/deduplication and saved-job owner | Job Finder Gateway, Document Generation Gateway | Reed, Adzuna, JSearch and Job Matching | PostgreSQL for saved jobs; search cache in memory | 8086 |
+
+See the central [job-search journey](https://docs.jobseekercopilot.com/journeys/job-search/), [data ownership](https://docs.jobseekercopilot.com/data/ownership/), and [dependency maps](https://docs.jobseekercopilot.com/architecture/dependency-maps/).
+
 Job Service owns canonical multi-provider Job Search aggregation:
 provider fan-out, mapping, normalisation, deduplication, enrichment, warnings,
 and stable search responses. It must not own provider credentials or leak
