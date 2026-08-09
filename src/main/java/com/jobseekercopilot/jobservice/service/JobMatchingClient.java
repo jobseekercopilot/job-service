@@ -3,6 +3,8 @@ package com.jobseekercopilot.jobservice.service;
 import com.jobseekercopilot.jobservice.model.dto.EnrichJobsRequest;
 import com.jobseekercopilot.jobservice.model.dto.EnrichJobsResponse;
 import com.jobseekercopilot.jobservice.model.dto.Job;
+import com.jobseekercopilot.jobservice.model.dto.HomeLocation;
+import com.jobseekercopilot.jobservice.model.dto.WorkPreferences;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,13 +32,21 @@ public class JobMatchingClient {
     }
 
     public List<Job> enrichJobs(String userId, List<Job> jobs) {
+        return enrichJobs(userId, jobs, null, null);
+    }
+
+    public List<Job> enrichJobs(
+            String userId,
+            List<Job> jobs,
+            HomeLocation homeLocation,
+            WorkPreferences commutePreferences) {
         long startedAt = System.nanoTime();
         log.info("Calling job-matching-service path=/api/v1/job-matches/enrich jobsReceived={}",
                 jobs == null ? 0 : jobs.size());
         try {
             EnrichJobsResponse response = restTemplate.postForObject(
                     baseUrl + "/api/v1/job-matches/enrich",
-                    new EnrichJobsRequest(userId, jobs),
+                    new EnrichJobsRequest(userId, jobs, homeLocation, commutePreferences),
                     EnrichJobsResponse.class);
             List<Job> enrichedJobs = response == null || response.getJobs() == null ? jobs : response.getJobs();
             log.info("job-matching-service returned status=200 enrichedCount={} durationMs={}",

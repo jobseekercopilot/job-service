@@ -2,6 +2,8 @@ package com.jobseekercopilot.jobservice.service;
 
 import com.jobseekercopilot.jobservice.config.JobSearchResilienceProperties;
 import com.jobseekercopilot.jobservice.model.dto.Job;
+import com.jobseekercopilot.jobservice.model.dto.HomeLocation;
+import com.jobseekercopilot.jobservice.model.dto.WorkPreferences;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,6 +13,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -39,6 +42,29 @@ public class OptionalJobMatchingEnricher {
             String userId,
             List<Job> providerJobs,
             long requestDeadlineNanos) {
+        return enrichInternal(
+                providerJobs,
+                requestDeadlineNanos,
+                () -> jobMatchingClient.enrichJobs(userId, providerJobs));
+    }
+
+    MatchingOutcome enrich(
+            String userId,
+            List<Job> providerJobs,
+            long requestDeadlineNanos,
+            HomeLocation homeLocation,
+            WorkPreferences commutePreferences) {
+        return enrichInternal(
+                providerJobs,
+                requestDeadlineNanos,
+                () -> jobMatchingClient.enrichJobs(
+                        userId, providerJobs, homeLocation, commutePreferences));
+    }
+
+    private MatchingOutcome enrichInternal(
+            List<Job> providerJobs,
+            long requestDeadlineNanos,
+            Supplier<List<Job>> task) {
         if (providerJobs.isEmpty()) {
             return new MatchingOutcome(providerJobs, "NOT_RUN", false);
         }
@@ -51,7 +77,7 @@ public class OptionalJobMatchingEnricher {
         Future<List<Job>> future;
         try {
             future = executor.submit(DownstreamTaskContext.withCurrentMdc(
-                    () -> jobMatchingClient.enrichJobs(userId, providerJobs)));
+                    task::get));
         } catch (RejectedExecutionException exception) {
             log.warn("Job Matching skipped because downstream executor is saturated");
             return degraded(providerJobs, "SATURATED");
@@ -118,6 +144,7 @@ public class OptionalJobMatchingEnricher {
                 providerJob.setAppliedAt(matchingJob.getAppliedAt());
                 providerJob.setApplicationUpdatedAt(
                         matchingJob.getApplicationUpdatedAt());
+                providerJob.setCommuteAssessment(matchingJob.getCommuteAssessment());
             }
         });
         return providerJobs;

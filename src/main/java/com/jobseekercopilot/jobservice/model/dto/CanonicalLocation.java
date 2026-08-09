@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 public class CanonicalLocation {
+    private String locationId;
     private String rawDisplayName;
     private String rawCity;
     private String rawRegion;
@@ -20,6 +21,12 @@ public class CanonicalLocation {
     private CanonicalValueStatus normalisationStatus =
             CanonicalValueStatus.NOT_PROVIDED;
     private BigDecimal normalisationConfidence;
+    private String locationType;
+    private String precision;
+    private String confidence;
+
+    public String getLocationId() { return locationId; }
+    public void setLocationId(String locationId) { this.locationId = locationId; }
 
     public String getRawDisplayName() {
         return rawDisplayName;
@@ -144,4 +151,11 @@ public class CanonicalLocation {
             BigDecimal normalisationConfidence) {
         this.normalisationConfidence = normalisationConfidence;
     }
+
+    public String getLocationType() { return locationType; }
+    public void setLocationType(String locationType) { this.locationType = locationType; }
+    public String getPrecision() { return precision; }
+    public void setPrecision(String precision) { this.precision = precision; }
+    public String getConfidence() { return confidence; }
+    public void setConfidence(String confidence) { this.confidence = confidence; }
 }

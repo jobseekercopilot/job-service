@@ -1,10 +1,17 @@
 package com.jobseekercopilot.jobservice.model.dto;
 
 public class HomeLocation {
+    private String locationId;
     private String displayName;
     private String postcode;
     private Double latitude;
     private Double longitude;
+    private String countryCode;
+    private String precision;
+    private String confidence;
+
+    public String getLocationId() { return locationId; }
+    public void setLocationId(String locationId) { this.locationId = locationId; }
 
     public String getDisplayName() {
         return displayName;
@@ -37,4 +44,11 @@ public class HomeLocation {
     public void setLongitude(Double longitude) {
         this.longitude = longitude;
     }
+
+    public String getCountryCode() { return countryCode; }
+    public void setCountryCode(String countryCode) { this.countryCode = countryCode; }
+    public String getPrecision() { return precision; }
+    public void setPrecision(String precision) { this.precision = precision; }
+    public String getConfidence() { return confidence; }
+    public void setConfidence(String confidence) { this.confidence = confidence; }
 }

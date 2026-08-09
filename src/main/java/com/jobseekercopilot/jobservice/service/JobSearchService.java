@@ -144,10 +144,17 @@ public class JobSearchService {
 
             applyDistance(request, providerSearchResult.jobs());
             OptionalJobMatchingEnricher.MatchingOutcome matchingOutcome =
-                    jobMatchingEnricher.enrich(
-                            userId,
-                            providerSearchResult.jobs(),
-                            requestDeadlineNanos);
+                    hasCommuteModes(request)
+                            ? jobMatchingEnricher.enrich(
+                                    userId,
+                                    providerSearchResult.jobs(),
+                                    requestDeadlineNanos,
+                                    request.getHomeLocation(),
+                                    request.getWorkPreferences())
+                            : jobMatchingEnricher.enrich(
+                                    userId,
+                                    providerSearchResult.jobs(),
+                                    requestDeadlineNanos);
             List<Job> enrichedJobs = matchingOutcome.jobs();
             matchingStatus = mergeMatchingStatus(
                     matchingStatus,
@@ -223,6 +230,12 @@ public class JobSearchService {
                 matchingStatus);
         response.setSort(sort);
         return response;
+    }
+
+    private boolean hasCommuteModes(JobSearchRequest request) {
+        return request.getWorkPreferences() != null
+                && request.getWorkPreferences().getCommuteTravelModes() != null
+                && !request.getWorkPreferences().getCommuteTravelModes().isEmpty();
     }
 
     public Job getJobDetails(
