@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.jobseekercopilot.jobservice.model.dto.CanonicalLocation;
 import com.jobseekercopilot.jobservice.model.dto.Job;
+import com.jobseekercopilot.jobservice.model.dto.WorkplaceTypeCode;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 
@@ -21,6 +22,18 @@ class JobDeduplicationServiceDistanceTest {
 
         assertThat(merged.getCanonicalLocation().getLatitude()).isEqualByComparingTo("51.5074");
         assertThat(merged.getCanonicalLocation().getLongitude()).isEqualByComparingTo("-0.1278");
+    }
+
+    @Test
+    void mergedDuplicateKeepsExplicitWorkplaceType() {
+        Job primary = job("primary");
+        primary.setWorkplaceType(WorkplaceTypeCode.UNKNOWN);
+        Job duplicate = job("duplicate");
+        duplicate.setWorkplaceType(WorkplaceTypeCode.HYBRID);
+
+        Job merged = service.mergeDuplicateJobs(primary, duplicate);
+
+        assertThat(merged.getWorkplaceType()).isEqualTo(WorkplaceTypeCode.HYBRID);
     }
 
     private Job job(String id) {
