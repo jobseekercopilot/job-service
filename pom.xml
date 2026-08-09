@@ -190,6 +190,38 @@
                             </configOptions>
                         </configuration>
                     </execution>
+                    <execution>
+                        <id>generate-nhs-jobs-gateway-client</id>
+                        <goals><goal>generate</goal></goals>
+                        <configuration>
+                            <inputSpec>${project.basedir}/src/main/openapi/nhs-jobs-gateway.yaml</inputSpec>
+                            <output>${project.build.directory}/generated-sources/openapi/nhs-jobs-gateway</output>
+                            <generatorName>java</generatorName><library>resttemplate</library>
+                            <apiPackage>com.jobseekercopilot.generated.nhsjobsgateway.api</apiPackage>
+                            <modelPackage>com.jobseekercopilot.generated.nhsjobsgateway.model</modelPackage>
+                            <invokerPackage>com.jobseekercopilot.generated.nhsjobsgateway.client</invokerPackage>
+                            <generateApiTests>false</generateApiTests><generateModelTests>false</generateModelTests>
+                            <generateApiDocumentation>false</generateApiDocumentation><generateModelDocumentation>false</generateModelDocumentation>
+                            <skipValidateSpec>false</skipValidateSpec>
+                            <configOptions><annotationLibrary>none</annotationLibrary><dateLibrary>java8</dateLibrary><hideGenerationTimestamp>true</hideGenerationTimestamp><openApiNullable>false</openApiNullable><useJakartaEe>true</useJakartaEe><useRuntimeException>true</useRuntimeException></configOptions>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>generate-apprenticeships-gateway-client</id>
+                        <goals><goal>generate</goal></goals>
+                        <configuration>
+                            <inputSpec>${project.basedir}/src/main/openapi/apprenticeships-gateway.yaml</inputSpec>
+                            <output>${project.build.directory}/generated-sources/openapi/apprenticeships-gateway</output>
+                            <generatorName>java</generatorName><library>resttemplate</library>
+                            <apiPackage>com.jobseekercopilot.generated.apprenticeshipsgateway.api</apiPackage>
+                            <modelPackage>com.jobseekercopilot.generated.apprenticeshipsgateway.model</modelPackage>
+                            <invokerPackage>com.jobseekercopilot.generated.apprenticeshipsgateway.client</invokerPackage>
+                            <generateApiTests>false</generateApiTests><generateModelTests>false</generateModelTests>
+                            <generateApiDocumentation>false</generateApiDocumentation><generateModelDocumentation>false</generateModelDocumentation>
+                            <skipValidateSpec>false</skipValidateSpec>
+                            <configOptions><annotationLibrary>none</annotationLibrary><dateLibrary>java8</dateLibrary><hideGenerationTimestamp>true</hideGenerationTimestamp><openApiNullable>false</openApiNullable><useJakartaEe>true</useJakartaEe><useRuntimeException>true</useRuntimeException></configOptions>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
 

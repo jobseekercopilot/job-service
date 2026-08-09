@@ -95,6 +95,11 @@ public class JobDeduplicationService {
         primary.setEmploymentType(firstNonBlank(primary.getEmploymentType(), duplicate.getEmploymentType()));
         primary.setContractType(firstNonBlank(primary.getContractType(), duplicate.getContractType()));
         primary.setCategory(firstNonBlank(primary.getCategory(), duplicate.getCategory()));
+        if (primary.getSpecialistType() == null || primary.getSpecialistType() == com.jobseekercopilot.jobservice.model.dto.JobSpecialistType.STANDARD) {
+            primary.setSpecialistType(duplicate.getSpecialistType());
+        }
+        if (primary.getLocations() == null || primary.getLocations().isEmpty()) primary.setLocations(duplicate.getLocations());
+        if (primary.getApprenticeshipDetails() == null) primary.setApprenticeshipDetails(duplicate.getApprenticeshipDetails());
         primary.setPostedDate(earliestDate(primary.getPostedDate(), duplicate.getPostedDate()));
         primary.setExpiresAt(firstNonBlank(primary.getExpiresAt(), duplicate.getExpiresAt()));
         primary.setRemote(primary.getRemote() != null ? primary.getRemote() : duplicate.getRemote());
@@ -258,9 +263,20 @@ public class JobDeduplicationService {
     private String primarySource(Job job) {
         return job.getSources().stream()
                 .filter(source -> Boolean.TRUE.equals(source.getDirectApply()))
+                .sorted(Comparator.comparingInt((JobSourceReference source) -> providerPriority(source.getProvider())).reversed())
                 .map(JobSourceReference::getProvider)
                 .findFirst()
                 .orElse(firstNonBlank(job.getPrimarySource(), job.getProvider()));
+    }
+
+    private int providerPriority(String provider) {
+        if (provider == null) return 0;
+        return switch (provider.toUpperCase(Locale.ROOT)) {
+            case "NHS_JOBS", "APPRENTICESHIPS" -> 100;
+            case "REED", "JSEARCH" -> 20;
+            case "ADZUNA" -> 10;
+            default -> 0;
+        };
     }
 
     private JobSalary preferredSalary(JobSalary left, JobSalary right) {

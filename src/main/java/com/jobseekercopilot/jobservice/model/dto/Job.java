@@ -34,6 +34,9 @@ public class Job {
     private ContractTypeCode contractTypeCode = ContractTypeCode.UNKNOWN;
     private WorkplaceTypeCode workplaceType = WorkplaceTypeCode.UNKNOWN;
     private String category;
+    private JobSpecialistType specialistType = JobSpecialistType.STANDARD;
+    private List<CanonicalLocation> locations = new ArrayList<>();
+    private ApprenticeshipDetails apprenticeshipDetails;
     private String postedDate;
     private String postedAt;
     private String expiresAt;
@@ -264,6 +267,13 @@ public class Job {
     public void setCategory(String category) {
         this.category = category;
     }
+
+    public JobSpecialistType getSpecialistType() { return specialistType; }
+    public void setSpecialistType(JobSpecialistType value) { specialistType = value == null ? JobSpecialistType.STANDARD : value; }
+    public List<CanonicalLocation> getLocations() { return locations; }
+    public void setLocations(List<CanonicalLocation> value) { locations = value == null ? new ArrayList<>() : value; }
+    public ApprenticeshipDetails getApprenticeshipDetails() { return apprenticeshipDetails; }
+    public void setApprenticeshipDetails(ApprenticeshipDetails value) { apprenticeshipDetails = value; }
 
     public String getPostedDate() {
         return postedDate;

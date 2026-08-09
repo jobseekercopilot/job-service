@@ -1,0 +1,77 @@
+openapi: 3.0.3
+info: {title: Apprenticeships Gateway API, version: 1.0.0}
+paths:
+  /api/v1/apprenticeships/jobs/search:
+    post:
+      tags: [Apprenticeships]
+      operationId: search
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ApprenticeshipsSearchRequest'}}}}
+      responses: {'200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/ApprenticeshipsSearchResponse'}}}}}
+components:
+  schemas:
+    ApprenticeshipsSearchRequest:
+      type: object
+      properties:
+        targetRole: {type: string}
+        location: {type: string}
+        distanceMiles: {type: integer, format: int32}
+        latitude: {type: number}
+        longitude: {type: number}
+        postedWithinDays: {type: integer, format: int32}
+        page: {type: integer, format: int32}
+        resultsPerPage: {type: integer, format: int32}
+    ApprenticeshipAddress:
+      type: object
+      properties:
+        addressLine1: {type: string}
+        addressLine2: {type: string}
+        addressLine3: {type: string}
+        addressLine4: {type: string}
+        postcode: {type: string}
+        latitude: {type: number}
+        longitude: {type: number}
+    ApprenticeshipVacancy:
+      type: object
+      properties:
+        vacancyReference: {type: string}
+        title: {type: string}
+        description: {type: string}
+        fullDescription: {type: string}
+        employerName: {type: string}
+        providerName: {type: string}
+        postedDate: {type: string}
+        closingDate: {type: string}
+        startDate: {type: string}
+        wageAmount: {type: number}
+        wageType: {type: string}
+        wageUnit: {type: string}
+        wageAdditionalInformation: {type: string}
+        workingWeekDescription: {type: string}
+        hoursPerWeek: {type: number}
+        expectedDuration: {type: string}
+        numberOfPositions: {type: integer, format: int32}
+        addresses: {type: array, items: {$ref: '#/components/schemas/ApprenticeshipAddress'}}
+        applicationUrl: {type: string}
+        vacancyUrl: {type: string}
+        courseTitle: {type: string}
+        courseLevel: {type: integer, format: int32}
+        courseLarsCode: {type: integer, format: int32}
+        courseRoute: {type: string}
+        courseType: {type: string}
+        apprenticeshipLevel: {type: string}
+        nationalVacancy: {type: boolean}
+        nationalVacancyDetails: {type: string}
+        skills: {type: array, items: {type: string}}
+        qualifications: {type: array, items: {type: string}}
+        thingsToConsider: {type: string}
+        companyBenefitsInformation: {type: string}
+    ApprenticeshipsSearchResponse:
+      type: object
+      properties:
+        provider: {type: string}
+        totalAvailable: {type: integer, format: int32}
+        page: {type: integer, format: int32}
+        resultsPerPage: {type: integer, format: int32}
+        snapshotUpdatedAt: {type: string, format: date-time}
+        stale: {type: boolean}
+        jobs: {type: array, items: {$ref: '#/components/schemas/ApprenticeshipVacancy'}}

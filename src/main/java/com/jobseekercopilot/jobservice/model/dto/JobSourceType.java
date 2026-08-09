@@ -5,6 +5,7 @@ public enum JobSourceType {
     JOB_BOARD,
     RECRUITER,
     AGGREGATOR,
+    OFFICIAL_PROVIDER,
     OTHER,
     UNKNOWN
 }

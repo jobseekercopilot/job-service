@@ -84,9 +84,9 @@ either provider snapshot cache.
 
 ## Consumer rollout
 
-This producer contract is API version `2.2.0`. Consumers may continue omitting
+This producer contract is API version `2.3.0`. Consumers may continue omitting
 the additive request fields and receive the defaults. Existing top-level
 response fields remain available. Consumers with role tabs should use
 `resultsByTargetRole` metadata, or issue one single-role request per tab, and
-Job Finder should pin the reviewed `2.2.0` contract before exposing the new
+Job Finder should pin the reviewed `2.3.0` contract before exposing the new
 role-scoped state to the browser.

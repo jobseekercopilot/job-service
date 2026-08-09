@@ -13,8 +13,12 @@ test -d "$contract_dir" || {
 for required_file in \
     adzuna-gateway.yaml \
     adzuna-gateway.SOURCE \
+    apprenticeships-gateway.yaml \
+    apprenticeships-gateway.SOURCE \
     jsearch-gateway.yaml \
     jsearch-gateway.SOURCE \
+    nhs-jobs-gateway.yaml \
+    nhs-jobs-gateway.SOURCE \
     reed-gateway.yaml \
     reed-gateway.SOURCE \
     SHA256SUMS
@@ -25,9 +29,11 @@ do
     }
 done
 
-test "$(wc -l < "$checksums")" -eq 3
+test "$(wc -l < "$checksums")" -eq 5
 grep -Eq '^[a-f0-9]{64}  adzuna-gateway\.yaml$' "$checksums"
+grep -Eq '^[a-f0-9]{64}  apprenticeships-gateway\.yaml$' "$checksums"
 grep -Eq '^[a-f0-9]{64}  jsearch-gateway\.yaml$' "$checksums"
+grep -Eq '^[a-f0-9]{64}  nhs-jobs-gateway\.yaml$' "$checksums"
 grep -Eq '^[a-f0-9]{64}  reed-gateway\.yaml$' "$checksums"
 (cd "$contract_dir" && sha256sum --check --strict SHA256SUMS)
 
@@ -52,10 +58,20 @@ verify_source \
     a10115b0ab60da26469504d964819d44b2d0d550 \
     10391e68dcec30e4fb765bcb3ddaf2150c0cc8b8adc529a11c8bf38fe7ae9331
 verify_source \
+    apprenticeships-gateway \
+    jobseekercopilot/apprenticeships-gateway \
+    82e9db4ef317c6e4e90009e46fb9f6205d6d30dd \
+    94605132443e2dcc5872c2cc62df39ec7575960845211d6277f3c5f7b3ef9b2e
+verify_source \
     jsearch-gateway \
     jobseekercopilot/jsearch-gateway \
     b7542b74265b9b6fd4cee752b4d9719935ccc3d9 \
     abe1984b48939f3c9820b846098bab5f20ee3c9346fb208df172deb9805382ad
+verify_source \
+    nhs-jobs-gateway \
+    jobseekercopilot/nhs-jobs-gateway \
+    b2f4d254f14b0acc656063a5bfe1e5388e7fec31 \
+    a797a2abd467efe7716ef31cae7320793d27dc84e6a5a3d23740667267608165
 verify_source \
     reed-gateway \
     jobseekercopilot/reed-gateway \
@@ -63,10 +79,12 @@ verify_source \
     de1801bb897990ec2e106023429d11744987929291b49a38ec023154ff3e3506
 
 adzuna_contract="$contract_dir/adzuna-gateway.yaml"
+apprenticeships_contract="$contract_dir/apprenticeships-gateway.yaml"
 jsearch_contract="$contract_dir/jsearch-gateway.yaml"
+nhs_contract="$contract_dir/nhs-jobs-gateway.yaml"
 reed_contract="$contract_dir/reed-gateway.yaml"
 
-for contract in "$adzuna_contract" "$jsearch_contract" "$reed_contract"; do
+for contract in "$adzuna_contract" "$apprenticeships_contract" "$jsearch_contract" "$nhs_contract" "$reed_contract"; do
     grep -Eq '^openapi: 3\.0\.[0-9]+$' "$contract"
 done
 
@@ -75,10 +93,18 @@ grep -F '      operationId: search' "$adzuna_contract" >/dev/null
 grep -F '    AdzunaSearchRequest:' "$adzuna_contract" >/dev/null
 grep -F '    AdzunaSearchResponse:' "$adzuna_contract" >/dev/null
 
+grep -F '  /api/v1/apprenticeships/jobs/search:' "$apprenticeships_contract" >/dev/null
+grep -F '    ApprenticeshipVacancy:' "$apprenticeships_contract" >/dev/null
+grep -F '        addresses:' "$apprenticeships_contract" >/dev/null
+
 grep -F '  /api/v1/jsearch/jobs/search:' "$jsearch_contract" >/dev/null
 grep -F '      operationId: search' "$jsearch_contract" >/dev/null
 grep -F '    JSearchSearchRequest:' "$jsearch_contract" >/dev/null
 grep -F '    JSearchSearchResponse:' "$jsearch_contract" >/dev/null
+
+grep -F '  /api/v1/nhs-jobs/jobs/search:' "$nhs_contract" >/dev/null
+grep -F '    NhsJob:' "$nhs_contract" >/dev/null
+grep -F '        locations:' "$nhs_contract" >/dev/null
 
 grep -F '  /api/jobs/external-search:' "$reed_contract" >/dev/null
 grep -F '      operationId: externalSearch' "$reed_contract" >/dev/null

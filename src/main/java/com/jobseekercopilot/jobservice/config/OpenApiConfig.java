@@ -38,7 +38,7 @@ public class OpenApiConfig {
                                 Saved jobs retain owner-scoped immutable canonical/source
                                 snapshots for later generation and application workflows.
                                 """)
-                        .version("2.2.0")
+                        .version("2.3.0")
                         .contact(new Contact()
                                 .name("Jobseeker Copilot"))
                         .license(new License()
