@@ -2,14 +2,16 @@
 
 ## Current role
 
-The service validates a limited request, calls enabled Reed, Adzuna and JSearch
-adapters concurrently within bounded budgets, maps results to a canonical
+The service validates a limited request and calls enabled Reed, Adzuna, JSearch,
+NHS Jobs, and Find an apprenticeship adapters concurrently within bounded
+budgets. It maps results to a canonical
 model, deduplicates, enriches and caches complete provider snapshots, then
 attempts optional Job Matching enrichment before returning.
 
 ## Blocking findings
 
-- **Completed provider build control:** Reed, Adzuna and JSearch clients are
+- **Completed provider build control:** Reed, Adzuna, JSearch, NHS Jobs, and
+  Apprenticeships clients are
   generated with the pinned OpenAPI Generator from exact producer revisions.
   Contract checks fail closed on missing input/provenance, checksum or revision
   drift, and required-operation removal. Job Matching remains the separately
