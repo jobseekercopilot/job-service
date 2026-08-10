@@ -4,7 +4,7 @@
 
 | Role | Called by | Calls | Data | Local port |
 |---|---|---|---|---:|
-| Canonical job search, provider fan-out, normalisation/deduplication and saved-job owner | Job Finder Gateway, Document Generation Gateway | Reed, Adzuna, JSearch and Job Matching | PostgreSQL for saved jobs; search cache in memory | 8086 |
+| Canonical job search, provider fan-out, normalisation/deduplication and saved-job owner | Job Finder Gateway, Document Generation Gateway | Reed, Adzuna, JSearch, NHS Jobs, Apprenticeships and Job Matching | PostgreSQL for saved jobs; search cache in memory | 8086 |
 
 See the central [job-search journey](https://docs.jobseekercopilot.com/journeys/job-search/), [data ownership](https://docs.jobseekercopilot.com/data/ownership/), and [dependency maps](https://docs.jobseekercopilot.com/architecture/dependency-maps/).
 
@@ -22,7 +22,7 @@ provider snapshots are isolated from user-specific application state.
 Canonical Job schema 2.0 adds lossless raw evidence, explicit unknown
 taxonomies, provenance, decimal salary fields, timezone-safe instants, skills
 and experience without removing legacy fields.
-Job Search API 2.2 applies bounded server-side paging and deterministic sorting
+Job Search API 2.3 applies bounded server-side paging and deterministic sorting
 independently to every target role. Role-scoped totals, provider outcomes and
 matching state prevent one role's page or failure from appearing as another
 role's empty result set. The legacy top-level response remains as a flattened
@@ -82,7 +82,7 @@ PostgreSQL instance, restart it without losing data, and exercise the backup
 restore procedure. See
 [`docs/SAVED_JOB_PERSISTENCE.md`](docs/SAVED_JOB_PERSISTENCE.md).
 
-Reed, Adzuna, and JSearch clients are generated during the Maven build from
+Reed, Adzuna, JSearch, NHS Jobs, and Apprenticeships clients are generated during the Maven build from
 checksum-protected producer contracts and immutable `.SOURCE` records under
 `src/main/openapi`. Generated sources and binaries remain under `target/` and
 are never committed. See [`CONTRACT.md`](CONTRACT.md) for the compatibility,
