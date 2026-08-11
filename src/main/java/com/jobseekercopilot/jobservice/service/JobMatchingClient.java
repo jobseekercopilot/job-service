@@ -10,8 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.ResourceAccessException;
-import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
@@ -53,12 +52,20 @@ public class JobMatchingClient {
                     enrichedJobs == null ? 0 : enrichedJobs.size(),
                     (System.nanoTime() - startedAt) / 1_000_000);
             return enrichedJobs;
-        } catch (ResourceAccessException | RestClientResponseException ex) {
-            log.warn("job-matching-service failed durationMs={} error={}",
+        } catch (RestClientException ex) {
+            log.warn("job-matching-service failed durationMs={} error={} cause={}",
                     (System.nanoTime() - startedAt) / 1_000_000,
-                    ex.getClass().getSimpleName());
+                    ex.getClass().getSimpleName(), rootCauseName(ex));
             throw new JobMatchingUnavailableException("Job matching service is unavailable", ex);
         }
+    }
+
+    private String rootCauseName(Throwable failure) {
+        Throwable current = failure;
+        while (current.getCause() != null && current.getCause() != current) {
+            current = current.getCause();
+        }
+        return current.getClass().getSimpleName();
     }
 
     public static class JobMatchingUnavailableException extends RuntimeException {
