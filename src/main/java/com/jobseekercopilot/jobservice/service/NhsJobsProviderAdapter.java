@@ -35,7 +35,7 @@ public class NhsJobsProviderAdapter implements JobProviderAdapter {
     }
     private Job map(NhsJob source) {
         Job job = new Job(); job.setId(source.getExternalJobId()); job.setCanonicalJobId(source.getExternalJobId()); job.setProvider(provider()); job.setPrimarySource(provider());
-        job.setExternalJobId(source.getExternalJobId()); job.setTitle(source.getTitle()); job.setJobTitle(source.getTitle()); job.setCompany(source.getEmployer()); job.setCompanyName(source.getEmployer());
+        job.setExternalJobId(source.getReference()); job.setTitle(source.getTitle()); job.setJobTitle(source.getTitle()); job.setCompany(source.getEmployer()); job.setCompanyName(source.getEmployer());
         job.setHiringOrganisationName(source.getEmployer()); job.setSpecialistType(JobSpecialistType.NHS); job.setContractType(source.getContractType()); job.setCategory("NHS");
         List<CanonicalLocation> locations = source.getLocations() == null ? List.of() : source.getLocations().stream().map(this::location).toList();
         job.setLocations(locations); if (!locations.isEmpty()) { job.setCanonicalLocation(locations.get(0)); job.setLocation(locations.get(0).getDisplayName()); }
@@ -48,7 +48,7 @@ public class NhsJobsProviderAdapter implements JobProviderAdapter {
         job.setExpiresAt(source.getClosingDate()); job.setApplicationDeadlineAtUtc(endOfDay(source.getClosingDate())); job.setDescription(source.getDescription());
         job.setDescriptionCompleteness(source.getDescription()==null||source.getDescription().isBlank()?JobDescriptionCompleteness.UNKNOWN:JobDescriptionCompleteness.PREVIEW);
         String url=CanonicalUrlPolicy.safeHttpUrl(source.getSourceUrl()); job.setUrl(url); job.setSourceUrl(url);
-        JobSourceReference reference=new JobSourceReference(); reference.setProvider(provider()); reference.setExternalJobId(source.getExternalJobId()); reference.setRawPublisher("NHS Jobs"); reference.setPublisher("NHS Jobs");
+        JobSourceReference reference=new JobSourceReference(); reference.setProvider(provider()); reference.setExternalJobId(source.getReference()); reference.setRawPublisher("NHS Jobs"); reference.setPublisher("NHS Jobs");
         reference.setSourceType(JobSourceType.OFFICIAL_PROVIDER); reference.setListingUrl(url); reference.setApplyUrl(url); reference.setDirectApply(true); reference.setProviderPostedAtRaw(source.getPostedAt()); reference.setProviderPostedAtUtc(job.getPostedAtUtc()); job.setSources(List.of(reference));
         job.setFieldProvenance(List.of(CanonicalJobMappingSupport.rawField(provider(),source.getExternalJobId(),"title",source.getTitle()), CanonicalJobMappingSupport.rawField(provider(),source.getExternalJobId(),"description",source.getDescription()), CanonicalJobMappingSupport.rawField(provider(),source.getExternalJobId(),"locations",source.getLocations())));
         return job;

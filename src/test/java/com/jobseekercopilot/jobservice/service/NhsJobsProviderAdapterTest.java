@@ -37,12 +37,16 @@ class NhsJobsProviderAdapterTest {
         assertThat(request.getValue().getWorkingPatterns()).containsExactly("Full time");
         assertThat(request.getValue().getContractTypes()).isNullOrEmpty();
         assertThat(jobs).singleElement().satisfies(job -> {
+            assertThat(job.getId()).isEqualTo("123");
+            assertThat(job.getCanonicalJobId()).isEqualTo("123");
+            assertThat(job.getExternalJobId()).isEqualTo("C123");
             assertThat(job.getSpecialistType()).isEqualTo(JobSpecialistType.NHS);
             assertThat(job.getLocations()).hasSize(2);
             assertThat(job.getCanonicalLocation().getPostcode()).isEqualTo("LS1 1AA");
             assertThat(job.getSources()).singleElement().satisfies(sourceReference -> {
                 assertThat(sourceReference.getSourceType()).isEqualTo(JobSourceType.OFFICIAL_PROVIDER);
                 assertThat(sourceReference.getPublisher()).isEqualTo("NHS Jobs");
+                assertThat(sourceReference.getExternalJobId()).isEqualTo("C123");
             });
         });
     }
