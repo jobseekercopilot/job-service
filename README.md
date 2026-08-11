@@ -13,7 +13,8 @@ provider fan-out, mapping, normalisation, deduplication, enrichment, warnings,
 and stable search responses. It must not own provider credentials or leak
 provider-specific DTOs to consumers.
 
-Status: **beta hardening in progress; not beta-ready**. Provider clients now
+Status: **implemented and composed for the controlled private-beta search
+journey**. Provider clients now
 build from pinned source-owned contracts and the search API verifies a signed
 end-user access token. Provider fan-out now runs concurrently within explicit
 request, provider, connection and capacity budgets; healthy provider jobs
