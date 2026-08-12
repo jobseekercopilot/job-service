@@ -102,6 +102,32 @@ class ProviderModeResolverTest {
         assertThat(result.externalCallsEnabled()).isNull();
     }
 
+    @Test
+    void normalisesUnexpectedGatewayModesToThePublicUnknownEnum() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server =
+                MockRestServiceServer.bindTo(restTemplate).build();
+        server.expect(once(), requestTo("http://reed/internal/provider-mode"))
+                .andRespond(withSuccess("""
+                        {"mode":"DEMO_READY","externalCallsEnabled":false}
+                        """, MediaType.APPLICATION_JSON));
+        ProviderModeResolver resolver = new ProviderModeResolver(
+                restTemplate,
+                "http://reed",
+                "http://adzuna",
+                "http://jsearch",
+                "http://nhs",
+                "http://apprenticeships",
+                fixedClock());
+
+        var result = resolver.resolve("REED");
+
+        server.verify();
+        assertThat(result.mode()).isEqualTo("UNKNOWN");
+        assertThat(result.dataOrigin()).isEqualTo("UNKNOWN");
+        assertThat(result.externalCallsEnabled()).isFalse();
+    }
+
     private Clock fixedClock() {
         return Clock.fixed(
                 Instant.parse("2026-08-13T08:15:30Z"),

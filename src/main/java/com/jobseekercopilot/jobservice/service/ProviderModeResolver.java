@@ -71,7 +71,11 @@ public class ProviderModeResolver {
         if (response == null) {
             return ProviderModeSnapshot.unknown();
         }
-        String mode = upperText(response.get("mode"));
+        String reportedMode = upperText(response.get("mode"));
+        String mode = switch (reportedMode) {
+            case "LIVE", "FIXTURE" -> reportedMode;
+            default -> "UNKNOWN";
+        };
         Boolean externalCallsEnabled = response.get("externalCallsEnabled") instanceof Boolean value
                 ? value
                 : null;
