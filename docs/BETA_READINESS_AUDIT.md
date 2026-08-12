@@ -14,8 +14,9 @@ attempts optional Job Matching enrichment before returning.
   Apprenticeships clients are
   generated with the pinned OpenAPI Generator from exact producer revisions.
   Contract checks fail closed on missing input/provenance, checksum or revision
-  drift, and required-operation removal. Job Matching remains the separately
-  tracked handwritten contract boundary.
+  drift, and required-operation removal. The separately handwritten Job
+  Matching boundary is now guarded by its exact producer API 1.1 contract,
+  including deterministic match-evidence fields.
 - **Completed SEARCH-07 availability boundary:** concurrent provider fan-out is
   bounded by shared request and per-provider deadlines, a fixed-size executor
   and a bounded queue. One provider failure preserves healthy jobs, stable
