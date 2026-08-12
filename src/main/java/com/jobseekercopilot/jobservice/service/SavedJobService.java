@@ -210,6 +210,8 @@ public class SavedJobService {
                 candidate.getDescriptionCompleteness().name());
         for (String mutableField : new String[] {
                 "matchScore",
+                "matchAssessment",
+                "discoveryAssessment",
                 "distanceMiles",
                 "commuteAssessment",
                 "applicationStatus",

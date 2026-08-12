@@ -20,6 +20,12 @@ response_sort_schema="$temporary_root/job-search-response-sort.yaml"
 search_status_schema="$temporary_root/search-status.yaml"
 matching_status_schema="$temporary_root/matching-status.yaml"
 provider_status_schema="$temporary_root/provider-result-status.yaml"
+candidate_profile_schema="$temporary_root/candidate-profile.yaml"
+discovery_schema="$temporary_root/job-discovery-assessment.yaml"
+match_schema="$temporary_root/match-assessment.yaml"
+provider_provenance_schema="$temporary_root/provider-data-provenance.yaml"
+freshness_schema="$temporary_root/search-freshness.yaml"
+quality_schema="$temporary_root/search-quality-summary.yaml"
 target_role_schema="$temporary_root/target-role-results.yaml"
 target_role_search_status_schema="$temporary_root/target-role-search-status.yaml"
 saved_job_schema="$temporary_root/saved-job-response.yaml"
@@ -47,7 +53,7 @@ test -f "$contract" && test ! -L "$contract" || {
 }
 
 grep -Eq '^openapi: 3\.0\.[0-9]+$' "$contract"
-grep -F '  version: 2.3.0' "$contract" >/dev/null
+grep -F '  version: 2.4.0' "$contract" >/dev/null
 grep -F '  /api/jobs/search:' "$contract" >/dev/null
 grep -F '      operationId: searchJobs' "$contract" >/dev/null
 grep -F '  /api/jobs/{provider}/{externalJobId}:' "$contract" >/dev/null
@@ -67,6 +73,7 @@ grep -F '        selectedProviders:' "$request_schema" >/dev/null
 for property in page pageSize sort; do
     grep -F "        $property:" "$request_schema" >/dev/null
 done
+grep -F '        candidateProfile:' "$request_schema" >/dev/null
 extract_property JobSearchRequest sort > "$request_sort_schema"
 for sort in MOST_RELEVANT CLOSEST HIGHEST_SALARY NEWEST_POSTED \
         OLDEST_POSTED COMPANY_AZ JOB_TITLE_AZ; do
@@ -85,6 +92,9 @@ for property in canonicalSchemaVersion canonicalJobId primarySource externalJobI
         skills experience fieldProvenance applicationStatus applicationId \
         cvDocumentId coverLetterDocumentId appliedAt applicationUpdatedAt \
         specialistType locations apprenticeshipDetails; do
+    grep -F "        $property:" "$job_schema" >/dev/null
+done
+for property in matchAssessment discoveryAssessment; do
     grep -F "        $property:" "$job_schema" >/dev/null
 done
 
@@ -144,6 +154,9 @@ grep -F '        matchingStatus:' "$response_schema" >/dev/null
 for property in totalResults page pageSize totalPages sort; do
     grep -F "        $property:" "$response_schema" >/dev/null
 done
+for property in freshness qualitySummary; do
+    grep -F "        $property:" "$response_schema" >/dev/null
+done
 extract_property ReedJobSearchResponse searchStatus > "$search_status_schema"
 extract_property ReedJobSearchResponse matchingStatus > "$matching_status_schema"
 extract_property ReedJobSearchResponse sort > "$response_sort_schema"
@@ -163,6 +176,7 @@ for property in targetRole jobs totalResults page pageSize totalPages \
         providerResults searchStatus matchingStatus; do
     grep -F "        $property:" "$target_role_schema" >/dev/null
 done
+grep -F '        qualitySummary:' "$target_role_schema" >/dev/null
 extract_property TargetRoleJobResults searchStatus \
     > "$target_role_search_status_schema"
 for status in COMPLETE PARTIAL UNAVAILABLE; do
@@ -170,8 +184,48 @@ for status in COMPLETE PARTIAL UNAVAILABLE; do
 done
 
 extract_schema ProviderResultStatus > "$provider_status_schema"
-for field in provider status rawResultCount; do
+for field in provider status rawResultCount dataProvenance; do
     grep -F "        $field:" "$provider_status_schema" >/dev/null
+done
+
+extract_schema CandidateProfile > "$candidate_profile_schema"
+for field in skills roles qualifications; do
+    grep -F "        $field:" "$candidate_profile_schema" >/dev/null
+done
+
+extract_schema JobDiscoveryAssessment > "$discovery_schema"
+for field in algorithmVersion availability engagementType occupationFamily seniority \
+        targetRoleAlignment targetRole excluded exclusionReasons; do
+    grep -F "        $field:" "$discovery_schema" >/dev/null
+done
+for value in CLOSED EXPIRED PAID_TRAINING MISMATCHED; do
+    grep -F "          - $value" "$discovery_schema" >/dev/null
+done
+
+extract_schema MatchAssessment > "$match_schema"
+for field in score provenance algorithmVersion targetRole rating \
+        candidateProfileUsed components reasons hardGateReasons; do
+    grep -F "        $field:" "$match_schema" >/dev/null
+done
+for value in DETERMINISTIC_PROFILE DETERMINISTIC_QUERY_ONLY REVIEW_REQUIRED; do
+    grep -F "          - $value" "$match_schema" >/dev/null
+done
+
+extract_schema ProviderDataProvenance > "$provider_provenance_schema"
+for field in providerMode dataOrigin resultSource datasetId datasetVersion \
+        scenario externalCallsEnabled retrievedAtUtc servedAtUtc cacheAgeSeconds; do
+    grep -F "        $field:" "$provider_provenance_schema" >/dev/null
+done
+
+extract_schema SearchFreshness > "$freshness_schema"
+for field in resultSource oldestRetrievedAtUtc servedAtUtc maximumCacheAgeSeconds; do
+    grep -F "        $field:" "$freshness_schema" >/dev/null
+done
+
+extract_schema SearchQualitySummary > "$quality_schema"
+for field in assessedJobCount eligibleJobCount excludedExpiredCount \
+        excludedPaidTrainingCount excludedOccupationMismatchCount; do
+    grep -F "        $field:" "$quality_schema" >/dev/null
 done
 for status in SUCCESS DISABLED UNAVAILABLE TIMED_OUT SATURATED RATE_LIMITED \
         CONFIGURATION_ERROR REJECTED; do

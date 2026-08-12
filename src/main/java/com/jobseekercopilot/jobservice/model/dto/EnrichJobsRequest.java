@@ -7,6 +7,8 @@ public class EnrichJobsRequest {
     private List<Job> jobs;
     private HomeLocation homeLocation;
     private WorkPreferences commutePreferences;
+    private String targetRole;
+    private CandidateProfile candidateProfile;
 
     public EnrichJobsRequest() {
     }
@@ -20,10 +22,22 @@ public class EnrichJobsRequest {
             List<Job> jobs,
             HomeLocation homeLocation,
             WorkPreferences commutePreferences) {
+        this(userId, jobs, homeLocation, commutePreferences, null, null);
+    }
+
+    public EnrichJobsRequest(
+            String userId,
+            List<Job> jobs,
+            HomeLocation homeLocation,
+            WorkPreferences commutePreferences,
+            String targetRole,
+            CandidateProfile candidateProfile) {
         this.userId = userId;
         this.jobs = jobs;
         this.homeLocation = homeLocation;
         this.commutePreferences = commutePreferences;
+        this.targetRole = targetRole;
+        this.candidateProfile = candidateProfile;
     }
 
     public String getUserId() {
@@ -46,4 +60,8 @@ public class EnrichJobsRequest {
     public void setHomeLocation(HomeLocation homeLocation) { this.homeLocation = homeLocation; }
     public WorkPreferences getCommutePreferences() { return commutePreferences; }
     public void setCommutePreferences(WorkPreferences commutePreferences) { this.commutePreferences = commutePreferences; }
+    public String getTargetRole() { return targetRole; }
+    public void setTargetRole(String targetRole) { this.targetRole = targetRole; }
+    public CandidateProfile getCandidateProfile() { return candidateProfile; }
+    public void setCandidateProfile(CandidateProfile candidateProfile) { this.candidateProfile = candidateProfile; }
 }

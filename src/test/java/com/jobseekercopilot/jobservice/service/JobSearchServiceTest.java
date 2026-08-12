@@ -6,6 +6,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -16,17 +18,25 @@ import com.jobseekercopilot.jobservice.config.JobSearchResilienceProperties;
 import com.jobseekercopilot.jobservice.model.dto.Aspirations;
 import com.jobseekercopilot.jobservice.model.dto.AdvertiserType;
 import com.jobseekercopilot.jobservice.model.dto.CanonicalLocation;
+import com.jobseekercopilot.jobservice.model.dto.CandidateProfile;
 import com.jobseekercopilot.jobservice.model.dto.HomeLocation;
 import com.jobseekercopilot.jobservice.model.dto.Job;
 import com.jobseekercopilot.jobservice.model.dto.JobDescriptionCompleteness;
 import com.jobseekercopilot.jobservice.model.dto.JobSalary;
 import com.jobseekercopilot.jobservice.model.dto.JobSearchRequest;
+import com.jobseekercopilot.jobservice.model.dto.JobSourceReference;
 import com.jobseekercopilot.jobservice.model.dto.JobSkill;
 import com.jobseekercopilot.jobservice.model.dto.JobSkillType;
 import com.jobseekercopilot.jobservice.model.dto.ProviderResultStatus;
+import com.jobseekercopilot.jobservice.model.dto.ProviderDataProvenance;
 import com.jobseekercopilot.jobservice.model.dto.ReedJobSearchResponse;
 import com.jobseekercopilot.jobservice.model.dto.WorkPreferences;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -80,6 +90,21 @@ class JobSearchServiceTest {
                 "user-1", "REED", "missing"))
                 .isInstanceOf(JobSearchService.JobNotFoundException.class)
                 .hasMessage("Job details are not available");
+    }
+
+    @Test
+    void rejectsProviderDetailsWithAKnownExpiredDeadline() {
+        Job detail = job("reed-42", "Software Developer", "REED");
+        detail.setExpiresAtUtc(java.time.OffsetDateTime.parse(
+                "2020-01-01T00:00:00Z"));
+        when(providerSearchCoordinator.details(
+                "user-1", "REED", "reed-42"))
+                .thenReturn(Optional.of(detail));
+
+        assertThatThrownBy(() -> service.getJobDetails(
+                "user-1", "REED", "reed-42"))
+                .isInstanceOf(JobSearchService.JobNotFoundException.class)
+                .hasMessage("Job is no longer available");
     }
 
     @Test
@@ -163,6 +188,84 @@ class JobSearchServiceTest {
         verify(providerSearchCoordinator).search(
                 eq("user-1"), criteria.capture(), anySet(), anyLong());
         assertThat(criteria.getValue().getEmploymentTypes()).isEmpty();
+    }
+
+    @Test
+    void forwardsCandidateEvidenceAndExactTargetRoleToDeterministicMatching() {
+        JobSearchRequest request = request("Software Developer");
+        CandidateProfile candidate = new CandidateProfile();
+        candidate.setSkills(List.of("Java"));
+        request.setCandidateProfile(candidate);
+        Job providerJob = job("job-1", "Junior Software Developer", "REED");
+        when(providerSearchCoordinator.search(
+                eq("user-1"), any(JobSearchCriteria.class), anySet(), anyLong()))
+                .thenReturn(fanOut(
+                        List.of(providerJob),
+                        List.of(status("REED", "SUCCESS", 1)),
+                        true, true, true));
+        when(matchingEnricher.enrich(
+                eq("user-1"), any(), anyLong(), isNull(), isNull(),
+                eq("Software Developer"), same(candidate)))
+                .thenAnswer(invocation ->
+                        new OptionalJobMatchingEnricher.MatchingOutcome(
+                                invocation.getArgument(1), "COMPLETE", false));
+
+        var result = service.searchJobs("user-1", request);
+
+        assertThat(result.getJobs()).singleElement()
+                .extracting(Job::getTitle)
+                .isEqualTo("Junior Software Developer");
+        verify(matchingEnricher).enrich(
+                eq("user-1"), any(), anyLong(), isNull(), isNull(),
+                eq("Software Developer"), same(candidate));
+    }
+
+    @Test
+    void juniorStressSliceFiltersTrainingAndOccupationMismatchThenRanksJuniorFirst() {
+        JobSearchRequest request = request("Junior Software Developer");
+        CandidateProfile candidate = new CandidateProfile();
+        candidate.setSkills(List.of("Java"));
+        request.setCandidateProfile(candidate);
+        Job junior = job("junior", "Junior Software Developer", "REED");
+        junior.setDescription("Permanent salaried vacancy building Java services");
+        Job senior = job("senior", "Senior Software Developer", "REED");
+        senior.setDescription("Lead Java services; 7 years experience required");
+        Job training = job("training", "Software Developer Career Programme", "REED");
+        training.setDescription("Training provider course fee with finance and job placement support");
+        Job retail = job("retail", "Retail Sales Assistant", "REED");
+        retail.setDescription("Serve customers in a shop");
+        when(providerSearchCoordinator.search(
+                eq("user-1"), any(JobSearchCriteria.class), anySet(), anyLong()))
+                .thenReturn(fanOut(
+                        List.of(senior, training, retail, junior),
+                        List.of(status("REED", "SUCCESS", 4)),
+                        true, true, true));
+        when(matchingEnricher.enrich(
+                eq("user-1"), any(), anyLong(), isNull(), isNull(),
+                eq("Junior Software Developer"), same(candidate)))
+                .thenAnswer(invocation -> {
+                    List<Job> visible = invocation.getArgument(1);
+                    visible.forEach(job -> job.setMatchScore(
+                            "JUNIOR_ENTRY".equals(
+                                    job.getDiscoveryAssessment().getSeniority())
+                                    ? .82 : .45));
+                    return new OptionalJobMatchingEnricher.MatchingOutcome(
+                            visible, "COMPLETE", false);
+                });
+
+        var result = service.searchJobs("user-1", request);
+
+        assertThat(result.getJobs())
+                .extracting(Job::getTitle)
+                .containsExactly(
+                        "Junior Software Developer",
+                        "Senior Software Developer");
+        assertThat(result.getQualitySummary().getAssessedJobCount()).isEqualTo(4);
+        assertThat(result.getQualitySummary().getEligibleJobCount()).isEqualTo(2);
+        assertThat(result.getQualitySummary().getExcludedPaidTrainingCount()).isOne();
+        assertThat(result.getQualitySummary().getExcludedOccupationMismatchCount()).isOne();
+        assertThat(result.getJobs().get(1).getDiscoveryAssessment().getSeniority())
+                .isEqualTo("SENIOR");
     }
 
     @Test
@@ -457,11 +560,22 @@ class JobSearchServiceTest {
 
         var result = service.searchJobs("user-1", request("developer"));
 
+        List<String> firstOrder = result.getJobs().stream()
+                .map(Job::getTitle).toList();
+        assertThat(firstOrder).hasSize(10);
+        assertThat(firstOrder).isNotEqualTo(List.of(
+                "Role 11", "Role 10", "Role 9", "Role 8", "Role 7",
+                "Role 6", "Role 5", "Role 4", "Role 3", "Role 2"));
         assertThat(result.getJobs())
-                .extracting(Job::getTitle)
-                .containsExactly(
-                        "Role 11", "Role 10", "Role 9", "Role 8", "Role 7",
-                        "Role 6", "Role 5", "Role 4", "Role 3", "Role 2");
+                .allMatch(job -> job.getMatchScore() == null,
+                        "provider-supplied scores must not be presented as personal relevance");
+        var repeated = service.searchJobs("user-1", request("developer"));
+        assertThat(repeated.getJobs()).extracting(Job::getTitle)
+                .containsExactlyElementsOf(firstOrder);
+        assertThat(result.getFreshness().getResultSource())
+                .isEqualTo("PROVIDER_RESPONSE");
+        assertThat(repeated.getFreshness().getResultSource())
+                .isEqualTo("JOB_SERVICE_CACHE");
         assertThat(result.getTotalResults()).isEqualTo(12);
         assertThat(result.getPage()).isEqualTo(1);
         assertThat(result.getPageSize()).isEqualTo(10);
@@ -473,6 +587,70 @@ class JobSearchServiceTest {
                     assertThat(group.getTargetRole()).isEqualTo("developer");
                     assertThat(group.getJobs()).hasSize(10);
                 });
+    }
+
+    @Test
+    void fixedClockMakesRetrievalAndCacheAgeMetadataDeterministic() {
+        MutableClock clock = new MutableClock(
+                Instant.parse("2026-08-13T08:15:30Z"));
+        JobSearchService clockedService = new JobSearchService(
+                providerSearchCoordinator,
+                deduplicationService,
+                jobResultEnrichmentService,
+                distanceCalculationService,
+                matchingEnricher,
+                resilience,
+                10,
+                new JobDiscoveryClassifier(clock),
+                clock);
+        Job freshJob = job("clocked-job", "Platform Developer", "REED");
+        JobSourceReference source = new JobSourceReference();
+        source.setProvider("REED");
+        source.setExternalJobId("clocked-job");
+        freshJob.setSources(List.of(source));
+        ProviderResultStatus provider = status("REED", "SUCCESS", 1);
+        provider.getDataProvenance().setRetrievedAtUtc(
+                OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC));
+        provider.getDataProvenance().setServedAtUtc(
+                OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC));
+        when(providerSearchCoordinator.search(
+                eq("clock-owner"), any(JobSearchCriteria.class), anySet(), anyLong()))
+                .thenReturn(fanOut(
+                        List.of(freshJob),
+                        List.of(provider),
+                        true,
+                        true,
+                        true));
+        passThroughMatching();
+
+        ReedJobSearchResponse fresh = clockedService.searchJobs(
+                "clock-owner", request("clocked platform developer"));
+        clock.advanceSeconds(90);
+        ReedJobSearchResponse cached = clockedService.searchJobs(
+                "clock-owner", request("clocked platform developer"));
+
+        assertThat(fresh.getJobs().get(0).getSources().get(0).getRetrievedAtUtc())
+                .isEqualTo(OffsetDateTime.parse("2026-08-13T08:15:30Z"));
+        assertThat(fresh.getFreshness().getServedAtUtc())
+                .isEqualTo(OffsetDateTime.parse("2026-08-13T08:15:30Z"));
+        assertThat(cached.getFreshness().getServedAtUtc())
+                .isEqualTo(OffsetDateTime.parse("2026-08-13T08:17:00Z"));
+        assertThat(cached.getFreshness().getMaximumCacheAgeSeconds())
+                .isEqualTo(90L);
+        assertThat(cached.getProviderResults())
+                .singleElement()
+                .satisfies(result -> {
+                    assertThat(result.getDataProvenance().getResultSource())
+                            .isEqualTo("JOB_SERVICE_CACHE");
+                    assertThat(result.getDataProvenance().getRetrievedAtUtc())
+                            .isEqualTo(OffsetDateTime.parse("2026-08-13T08:15:30Z"));
+                    assertThat(result.getDataProvenance().getServedAtUtc())
+                            .isEqualTo(OffsetDateTime.parse("2026-08-13T08:17:00Z"));
+                    assertThat(result.getDataProvenance().getCacheAgeSeconds())
+                            .isEqualTo(90L);
+                });
+        verify(providerSearchCoordinator, times(1))
+                .search(eq("clock-owner"), any(), anySet(), anyLong());
     }
 
     @Test
@@ -858,7 +1036,19 @@ class JobSearchServiceTest {
             String provider,
             String status,
             int rawResultCount) {
-        return new ProviderResultStatus(provider, status, rawResultCount, null);
+        ProviderResultStatus result = new ProviderResultStatus(
+                provider, status, rawResultCount, null);
+        ProviderDataProvenance provenance = new ProviderDataProvenance();
+        provenance.setProviderMode("FIXTURE");
+        provenance.setDataOrigin("FIXTURE");
+        provenance.setResultSource("PROVIDER_RESPONSE");
+        provenance.setRetrievedAtUtc(java.time.OffsetDateTime.parse(
+                "2026-08-12T12:00:00Z"));
+        provenance.setServedAtUtc(java.time.OffsetDateTime.parse(
+                "2026-08-12T12:00:00Z"));
+        provenance.setCacheAgeSeconds(0L);
+        result.setDataProvenance(provenance);
+        return result;
     }
 
     private JobSearchRequest request(String... roles) {
@@ -911,5 +1101,32 @@ class JobSearchServiceTest {
         location.setLongitude(BigDecimal.valueOf(longitude));
         job.setCanonicalLocation(location);
         return job;
+    }
+
+    private static final class MutableClock extends Clock {
+        private Instant current;
+
+        private MutableClock(Instant current) {
+            this.current = current;
+        }
+
+        void advanceSeconds(long seconds) {
+            current = current.plusSeconds(seconds);
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneOffset.UTC;
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public Instant instant() {
+            return current;
+        }
     }
 }

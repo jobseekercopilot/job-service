@@ -17,6 +17,7 @@ public class MatchingJobEnrichment {
     private String canonicalJobId;
     private Double distanceMiles;
     private Double matchScore;
+    private MatchAssessment matchAssessment;
     private CommuteAssessment commuteAssessment;
     private String applicationStatus;
     private UUID applicationId;
@@ -49,6 +50,14 @@ public class MatchingJobEnrichment {
 
     public void setMatchScore(Double matchScore) {
         this.matchScore = matchScore;
+    }
+
+    public MatchAssessment getMatchAssessment() {
+        return matchAssessment;
+    }
+
+    public void setMatchAssessment(MatchAssessment matchAssessment) {
+        this.matchAssessment = matchAssessment;
     }
 
     public CommuteAssessment getCommuteAssessment() {

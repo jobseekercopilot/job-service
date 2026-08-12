@@ -9,7 +9,7 @@ trap 'rm -rf "$temporary_root"' EXIT INT TERM
 "$script_dir/verify-api-contract.sh" "$source_contract" >/dev/null
 
 stale_version="$temporary_root/stale-canonical-version.yaml"
-sed 's/^  version: 2\.3\.0$/  version: 2.2.0/' \
+sed 's/^  version: 2\.4\.0$/  version: 2.3.0/' \
     "$source_contract" > "$stale_version"
 if "$script_dir/verify-api-contract.sh" "$stale_version" >/dev/null 2>&1; then
     echo "producer contract policy test: stale canonical version was accepted" >&2

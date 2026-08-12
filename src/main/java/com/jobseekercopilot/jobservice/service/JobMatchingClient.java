@@ -6,6 +6,7 @@ import com.jobseekercopilot.jobservice.model.dto.HomeLocation;
 import com.jobseekercopilot.jobservice.model.dto.Job;
 import com.jobseekercopilot.jobservice.model.dto.MatchingJobEnrichment;
 import com.jobseekercopilot.jobservice.model.dto.WorkPreferences;
+import com.jobseekercopilot.jobservice.model.dto.CandidateProfile;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,13 +42,25 @@ public class JobMatchingClient {
             List<Job> jobs,
             HomeLocation homeLocation,
             WorkPreferences commutePreferences) {
+        return enrichJobs(userId, jobs, homeLocation, commutePreferences,
+                null, null);
+    }
+
+    public List<Job> enrichJobs(
+            String userId,
+            List<Job> jobs,
+            HomeLocation homeLocation,
+            WorkPreferences commutePreferences,
+            String targetRole,
+            CandidateProfile candidateProfile) {
         long startedAt = System.nanoTime();
         log.info("Calling job-matching-service path=/api/v1/job-matches/enrich jobsReceived={}",
                 jobs == null ? 0 : jobs.size());
         try {
             EnrichJobsResponse response = restTemplate.postForObject(
                     baseUrl + "/api/v1/job-matches/enrich",
-                    new EnrichJobsRequest(userId, jobs, homeLocation, commutePreferences),
+                    new EnrichJobsRequest(userId, jobs, homeLocation,
+                            commutePreferences, targetRole, candidateProfile),
                     EnrichJobsResponse.class);
             List<Job> enrichedJobs = mergeEnrichment(jobs, response);
             log.info("job-matching-service returned status=200 enrichedCount={} durationMs={}",
@@ -143,6 +156,7 @@ public class JobMatchingClient {
         if (enrichment.getMatchScore() != null) {
             job.setMatchScore(enrichment.getMatchScore());
         }
+        job.setMatchAssessment(enrichment.getMatchAssessment());
         job.setCommuteAssessment(enrichment.getCommuteAssessment());
         job.setApplicationStatus(enrichment.getApplicationStatus());
         job.setApplicationId(enrichment.getApplicationId());

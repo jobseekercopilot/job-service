@@ -55,6 +55,8 @@ public class Job {
     private JobExperience experience = new JobExperience();
     private List<JobFieldProvenance> fieldProvenance = new ArrayList<>();
     private Double matchScore;
+    private MatchAssessment matchAssessment;
+    private JobDiscoveryAssessment discoveryAssessment;
     private CommuteAssessment commuteAssessment;
     private String applicationStatus;
     private UUID applicationId;
@@ -418,6 +420,22 @@ public class Job {
 
     public void setMatchScore(Double matchScore) {
         this.matchScore = matchScore;
+    }
+
+    public MatchAssessment getMatchAssessment() {
+        return matchAssessment;
+    }
+
+    public void setMatchAssessment(MatchAssessment matchAssessment) {
+        this.matchAssessment = matchAssessment;
+    }
+
+    public JobDiscoveryAssessment getDiscoveryAssessment() {
+        return discoveryAssessment;
+    }
+
+    public void setDiscoveryAssessment(JobDiscoveryAssessment discoveryAssessment) {
+        this.discoveryAssessment = discoveryAssessment;
     }
 
     public String getApplicationStatus() {

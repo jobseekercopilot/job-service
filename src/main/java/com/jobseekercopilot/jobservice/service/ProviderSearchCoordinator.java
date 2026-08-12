@@ -3,6 +3,7 @@ package com.jobseekercopilot.jobservice.service;
 import com.jobseekercopilot.jobservice.config.JobSearchResilienceProperties;
 import com.jobseekercopilot.jobservice.model.dto.Job;
 import com.jobseekercopilot.jobservice.model.dto.ProviderResultStatus;
+import com.jobseekercopilot.jobservice.model.dto.ProviderDataProvenance;
 import java.net.SocketTimeoutException;
 import java.net.http.HttpConnectTimeoutException;
 import java.util.ArrayList;
@@ -16,6 +17,8 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.time.OffsetDateTime;
+import java.time.Clock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -33,14 +36,20 @@ public class ProviderSearchCoordinator {
     private final List<JobProviderAdapter> providerAdapters;
     private final ThreadPoolExecutor executor;
     private final JobSearchResilienceProperties resilience;
+    private final ProviderModeResolver providerModeResolver;
+    private final Clock clock;
 
     public ProviderSearchCoordinator(
             List<JobProviderAdapter> providerAdapters,
             @Qualifier("jobSearchExecutor") ThreadPoolExecutor executor,
-            JobSearchResilienceProperties resilience) {
+            JobSearchResilienceProperties resilience,
+            ProviderModeResolver providerModeResolver,
+            Clock clock) {
         this.providerAdapters = providerAdapters;
         this.executor = executor;
         this.resilience = resilience;
+        this.providerModeResolver = providerModeResolver;
+        this.clock = clock;
     }
 
     Optional<Job> details(
@@ -104,6 +113,9 @@ public class ProviderSearchCoordinator {
             for (ProviderWork providerWork : work) {
                 if (providerWork.immediateStatus() != null) {
                     ProviderResultStatus status = providerWork.immediateStatus();
+                    if (status.getDataProvenance() == null) {
+                        withFreshProvenance(status, status.getProvider());
+                    }
                     statuses.add(status);
                     if (!"DISABLED".equals(status.getStatus())) {
                         anyAttempted = true;
@@ -165,11 +177,11 @@ public class ProviderSearchCoordinator {
                     safeJobs.size());
             return new ProviderCallResult(
                     safeJobs,
-                    new ProviderResultStatus(
+                    withFreshProvenance(new ProviderResultStatus(
                             work.provider(),
                             "SUCCESS",
                             providerJobs.size(),
-                            null));
+                            null), work.provider()));
         } catch (TimeoutException exception) {
             work.future().cancel(true);
             log.warn("Provider {} timed out", work.provider());
@@ -240,7 +252,30 @@ public class ProviderSearchCoordinator {
             String provider,
             String category,
             String message) {
-        return new ProviderResultStatus(provider, category, 0, message);
+        return withFreshProvenance(
+                new ProviderResultStatus(provider, category, 0, message),
+                provider);
+    }
+
+    private ProviderResultStatus withFreshProvenance(
+            ProviderResultStatus status,
+            String provider) {
+        ProviderModeResolver.ProviderModeSnapshot mode =
+                providerModeResolver.resolve(provider);
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        ProviderDataProvenance provenance = new ProviderDataProvenance();
+        provenance.setProviderMode(mode.mode());
+        provenance.setDataOrigin(mode.dataOrigin());
+        provenance.setResultSource("PROVIDER_RESPONSE");
+        provenance.setDatasetId(mode.datasetId());
+        provenance.setDatasetVersion(mode.datasetVersion());
+        provenance.setScenario(mode.scenario());
+        provenance.setExternalCallsEnabled(mode.externalCallsEnabled());
+        provenance.setRetrievedAtUtc(now);
+        provenance.setServedAtUtc(now);
+        provenance.setCacheAgeSeconds(0L);
+        status.setDataProvenance(provenance);
+        return status;
     }
 
     record ProviderFanOutResult(

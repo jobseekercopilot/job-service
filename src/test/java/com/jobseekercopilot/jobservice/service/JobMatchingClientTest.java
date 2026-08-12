@@ -54,6 +54,17 @@ class JobMatchingClientTest {
                     }],
                     "distanceMiles": 12.5,
                     "matchScore": 0.87,
+                    "matchAssessment": {
+                      "score": 0.87,
+                      "provenance": "DETERMINISTIC_PROFILE",
+                      "algorithmVersion": "PROFILE_MATCH_V1",
+                      "targetRole": "Software Developer",
+                      "rating": "GOOD",
+                      "candidateProfileUsed": true,
+                      "components": [],
+                      "reasons": [],
+                      "hardGateReasons": []
+                    },
                     "commuteAssessment": {
                       "status": "WITHIN_PREFERENCE",
                       "workplaceType": "HYBRID",
@@ -96,6 +107,8 @@ class JobMatchingClientTest {
 
         assertThat(original.getDistanceMiles()).isEqualTo(12.5);
         assertThat(original.getMatchScore()).isEqualTo(0.87);
+        assertThat(original.getMatchAssessment().getProvenance())
+                .isEqualTo("DETERMINISTIC_PROFILE");
         assertThat(original.getCommuteAssessment().getStatus())
                 .isEqualTo(CommuteAssessment.Status.WITHIN_PREFERENCE);
         assertThat(original.getApplicationStatus()).isEqualTo("APPLIED");

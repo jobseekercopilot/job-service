@@ -23,6 +23,9 @@ public class JobSearchRequest {
     @Schema(description = "User home location used for distance calculation and distance sorting.")
     private HomeLocation homeLocation;
 
+    @Schema(description = "Optional minimal claimant-declared evidence used by deterministic matching. Omitted for non-profile searches.")
+    private CandidateProfile candidateProfile;
+
     @Schema(description = "Optional list of integration providers to search. Empty means all enabled providers.")
     private List<String> selectedProviders;
 
@@ -84,6 +87,14 @@ public class JobSearchRequest {
 
     public void setHomeLocation(HomeLocation homeLocation) {
         this.homeLocation = homeLocation;
+    }
+
+    public CandidateProfile getCandidateProfile() {
+        return candidateProfile;
+    }
+
+    public void setCandidateProfile(CandidateProfile candidateProfile) {
+        this.candidateProfile = candidateProfile;
     }
 
     public List<String> getSelectedProviders() {
