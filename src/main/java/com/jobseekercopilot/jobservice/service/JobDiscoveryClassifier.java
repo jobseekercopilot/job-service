@@ -23,7 +23,7 @@ import org.springframework.stereotype.Component;
 /** Conservative deterministic rules for vacancy hygiene. */
 @Component
 public class JobDiscoveryClassifier {
-    static final String ALGORITHM_VERSION = "DISCOVERY_RULES_V1";
+    static final String ALGORITHM_VERSION = "DISCOVERY_RULES_V2";
     private static final Pattern MINIMUM_EXPERIENCE = Pattern.compile(
             "(?i)(?:at least|minimum(?: of)?|min\\.?\\s*)?\\b(\\d{1,2})\\s*\\+?\\s*(?:years?|yrs?)\\b[^.\\n]{0,45}\\b(?:experience|commercial|professional|development|engineering)\\b");
     private static final Set<String> CLOSED_PHRASES = Set.of(
@@ -171,15 +171,30 @@ public class JobDiscoveryClassifier {
         if (containsAny(text, Set.of("quality assurance", "qa engineer", "test engineer", "software tester", "automation tester"))) return "QUALITY_ENGINEERING";
         if (containsAny(text, Set.of("cyber", "security engineer", "penetration", "soc analyst"))) return "CYBER_SECURITY";
         if (containsAny(text, Set.of("ux", "user experience", "ui designer", "product designer"))) return "DESIGN";
-        if (containsAny(text, Set.of("project manager", "project coordinator", "product manager", "product owner", "scrum master"))) return "PRODUCT_PROJECT";
+        if (containsAny(text, Set.of(
+                "project manager", "project coordinator", "project support",
+                "programme manager", "program manager", "programme support",
+                "program support", "product manager", "product owner", "scrum master"))) {
+            return "PRODUCT_PROJECT";
+        }
         if (containsAny(text, Set.of("helpdesk", "service desk", "technical support", "it support"))) return "IT_SUPPORT";
-        if (containsAny(text, Set.of("sales", "retail", "warehouse", "care assistant", "nurse", "teacher", "chef", "driver"))) return "NON_TECHNICAL";
+        if (!"UNKNOWN".equals(nonTechnicalDiscipline(text))) return "NON_TECHNICAL";
         return "UNKNOWN";
     }
 
     private String alignment(String targetFamily, String jobFamily, String target, String title) {
         if (!"UNKNOWN".equals(targetFamily) && targetFamily.equals(jobFamily)) {
-            return "ALIGNED";
+            if (!"NON_TECHNICAL".equals(targetFamily)) {
+                return "ALIGNED";
+            }
+            String targetDiscipline = nonTechnicalDiscipline(target);
+            String jobDiscipline = nonTechnicalDiscipline(title);
+            if (!"UNKNOWN".equals(targetDiscipline)
+                    && !"UNKNOWN".equals(jobDiscipline)) {
+                return targetDiscipline.equals(jobDiscipline)
+                        ? "ALIGNED"
+                        : "MISMATCHED";
+            }
         }
         if (Set.of("SOFTWARE", "DATA", "QUALITY_ENGINEERING", "CYBER_SECURITY").contains(targetFamily)
                 && Set.of("SOFTWARE", "DATA", "QUALITY_ENGINEERING", "CYBER_SECURITY").contains(jobFamily)) {
@@ -192,6 +207,41 @@ public class JobDiscoveryClassifier {
         }
         if (!"UNKNOWN".equals(targetFamily) && !"UNKNOWN".equals(jobFamily)) {
             return "MISMATCHED";
+        }
+        return "UNKNOWN";
+    }
+
+    private static String nonTechnicalDiscipline(String text) {
+        if (containsAny(text, Set.of(
+                "accounts", "accounting", "bookkeeper", "bookkeeping",
+                "finance", "financial", "payroll"))) {
+            return "FINANCE";
+        }
+        if (containsAny(text, Set.of(
+                "administrative", "administrator", "administration",
+                "office assistant", "office coordinator", "office support"))) {
+            return "ADMINISTRATION";
+        }
+        if (containsAny(text, Set.of(
+                "care assistant", "carer", "healthcare", "nurse", "nursing"))) {
+            return "HEALTHCARE";
+        }
+        if (containsAny(text, Set.of(
+                "teacher", "teaching", "teaching assistant", "learning assistant",
+                "education assistant", "educator"))) {
+            return "EDUCATION";
+        }
+        if (containsAny(text, Set.of(
+                "sales", "retail", "shop assistant", "sales associate"))) {
+            return "SALES_RETAIL";
+        }
+        if (containsAny(text, Set.of(
+                "warehouse", "driver", "delivery", "logistics"))) {
+            return "LOGISTICS";
+        }
+        if (containsAny(text, Set.of(
+                "chef", "cook", "kitchen", "hospitality"))) {
+            return "HOSPITALITY";
         }
         return "UNKNOWN";
     }

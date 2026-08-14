@@ -79,6 +79,76 @@ class JobDiscoveryClassifierTest {
                 .isEqualByComparingTo("7");
     }
 
+    @Test
+    void conservativelySeparatesAdministrativeFinanceAndHealthcareWork() {
+        Job software = job("Software Developer", "Build Java services");
+        Job nurse = job("Community Staff Nurse", "Provide community nursing care");
+
+        var administrative = classifier.classifyAndFilter(
+                "Administrative Assistant", List.of(software, nurse));
+        var finance = classifier.classifyAndFilter(
+                "Accounts Assistant", List.of(software, nurse));
+        var payroll = classifier.classifyAndFilter(
+                "Payroll Administrator", List.of(software, nurse));
+
+        assertThat(administrative.jobs()).isEmpty();
+        assertThat(administrative.summary().getExcludedOccupationMismatchCount())
+                .isEqualTo(2);
+        assertThat(finance.jobs()).isEmpty();
+        assertThat(finance.summary().getExcludedOccupationMismatchCount())
+                .isEqualTo(2);
+        assertThat(payroll.jobs()).isEmpty();
+        assertThat(payroll.summary().getExcludedOccupationMismatchCount())
+                .isEqualTo(2);
+    }
+
+    @Test
+    void keepsKnownNonTechnicalDisciplinesAlignedWithoutGroupingThemTogether() {
+        Job nurse = job("Community Staff Nurse", "Provide community nursing care");
+        Job teacher = job("Secondary School Teacher", "Teach history classes");
+
+        var nursing = classifier.classifyAndFilter(
+                "Registered Nurse", List.of(nurse, teacher));
+
+        assertThat(nursing.jobs()).containsExactly(nurse);
+        assertThat(nursing.summary().getExcludedOccupationMismatchCount()).isOne();
+        assertThat(nurse.getDiscoveryAssessment().getTargetRoleAlignment())
+                .isEqualTo("ALIGNED");
+    }
+
+    @Test
+    void keepsAlignedAdministrativeAndFinanceVacancies() {
+        Job administrator = job("Administrative Assistant", "Support office administration");
+        Job payroll = job("Payroll Administrator", "Process payroll records");
+
+        var administrative = classifier.classifyAndFilter(
+                "Administrative Assistant", List.of(administrator, payroll));
+        assertThat(administrative.jobs()).containsExactly(administrator);
+        assertThat(administrator.getDiscoveryAssessment().getTargetRoleAlignment())
+                .isEqualTo("ALIGNED");
+
+        var finance = classifier.classifyAndFilter(
+                "Accounts Assistant", List.of(administrator, payroll));
+        assertThat(finance.jobs()).containsExactly(payroll);
+        assertThat(payroll.getDiscoveryAssessment().getTargetRoleAlignment())
+                .isEqualTo("ALIGNED");
+    }
+
+    @Test
+    void recognisesProgrammeSupportAsProjectWork() {
+        Job software = job("Software Developer", "Build Java services");
+
+        var result = classifier.classifyAndFilter(
+                "Programme Support Officer", List.of(software));
+
+        assertThat(result.jobs()).isEmpty();
+        assertThat(result.summary().getExcludedOccupationMismatchCount()).isOne();
+        assertThat(software.getDiscoveryAssessment().getTargetRoleAlignment())
+                .isEqualTo("MISMATCHED");
+        assertThat(software.getDiscoveryAssessment().getAlgorithmVersion())
+                .isEqualTo("DISCOVERY_RULES_V2");
+    }
+
     private Job job(String title, String description) {
         Job job = new Job();
         job.setTitle(title);
