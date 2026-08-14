@@ -2,12 +2,18 @@ package com.jobseekercopilot.jobservice.service;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.jobseekercopilot.jobservice.config.JobSearchResilienceProperties;
 import com.jobseekercopilot.jobservice.logging.CorrelationIdFilter;
 import com.jobseekercopilot.jobservice.model.dto.Job;
 import com.jobseekercopilot.jobservice.model.dto.JobSearchRequest;
 import java.net.SocketTimeoutException;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -81,6 +87,10 @@ class ProviderSearchCoordinatorTest {
                         org.assertj.core.groups.Tuple.tuple("ADZUNA", "SUCCESS"));
         assertThat(reedCorrelation).hasValue("search-07-correlation");
         assertThat(adzunaCorrelation).hasValue("search-07-correlation");
+        assertThat(result.providerResults().get(0).getDataProvenance().getRetrievedAtUtc())
+                .isEqualTo(java.time.OffsetDateTime.parse("2026-08-13T08:15:30Z"));
+        assertThat(result.providerResults().get(0).getDataProvenance().getServedAtUtc())
+                .isEqualTo(java.time.OffsetDateTime.parse("2026-08-13T08:15:30Z"));
         assertThat(result.complete()).isTrue();
     }
 
@@ -326,7 +336,17 @@ class ProviderSearchCoordinatorTest {
                         50,
                         Math.max(1, executor.getMaximumPoolSize()),
                         Math.max(0, executor.getQueue().remainingCapacity()));
-        return new ProviderSearchCoordinator(adapters, executor, properties);
+        ProviderModeResolver modeResolver = mock(ProviderModeResolver.class);
+        when(modeResolver.resolve(anyString()))
+                .thenReturn(ProviderModeResolver.ProviderModeSnapshot.unknown());
+        return new ProviderSearchCoordinator(
+                adapters,
+                executor,
+                properties,
+                modeResolver,
+                Clock.fixed(
+                        Instant.parse("2026-08-13T08:15:30Z"),
+                        ZoneOffset.UTC));
     }
 
     private ThreadPoolExecutor executor(int threads, int queueCapacity) {

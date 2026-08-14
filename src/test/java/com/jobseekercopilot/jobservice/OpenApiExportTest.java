@@ -40,7 +40,7 @@ class OpenApiExportTest {
 
         assertTrue(contract.contains("/api/jobs/saved"));
         assertTrue(contract.contains("SavedJobResponse"));
-        assertTrue(contract.contains("version: 2.3.0"));
+        assertTrue(contract.contains("version: 2.4.0"));
         assertTrue(contract.contains("ApprenticeshipDetails:"));
         assertTrue(contract.contains("APPRENTICESHIP"));
         assertTrue(contract.contains("OFFICIAL_PROVIDER"));
@@ -49,6 +49,12 @@ class OpenApiExportTest {
         assertTrue(contract.contains("TargetRoleJobResults:"));
         assertTrue(contract.contains("UNAVAILABLE"));
         assertTrue(contract.contains("JOB_TITLE_AZ"));
+        assertTrue(contract.contains("candidateProfile:"));
+        assertTrue(contract.contains("MatchAssessment:"));
+        assertTrue(contract.contains("hardGateReasons:"));
+        assertTrue(contract.contains("ProviderDataProvenance:"));
+        assertTrue(contract.contains("SearchFreshness:"));
+        assertTrue(contract.contains("SearchQualitySummary:"));
         Files.createDirectories(Path.of("target"));
         Files.writeString(Path.of("target/openapi.yaml"), contract);
     }

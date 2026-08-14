@@ -5,6 +5,7 @@ import com.jobseekercopilot.jobservice.model.dto.ApprenticeshipDetails;
 import com.jobseekercopilot.jobservice.model.dto.CanonicalLocation;
 import com.jobseekercopilot.jobservice.model.dto.HomeLocation;
 import com.jobseekercopilot.jobservice.model.dto.Job;
+import com.jobseekercopilot.jobservice.model.dto.JobDiscoveryAssessment;
 import com.jobseekercopilot.jobservice.model.dto.JobExperience;
 import com.jobseekercopilot.jobservice.model.dto.JobFieldProvenance;
 import com.jobseekercopilot.jobservice.model.dto.JobSalary;
@@ -12,16 +13,24 @@ import com.jobseekercopilot.jobservice.model.dto.JobSearchRequest;
 import com.jobseekercopilot.jobservice.model.dto.JobSkill;
 import com.jobseekercopilot.jobservice.model.dto.JobSourceReference;
 import com.jobseekercopilot.jobservice.model.dto.ProviderResultStatus;
+import com.jobseekercopilot.jobservice.model.dto.ProviderDataProvenance;
 import com.jobseekercopilot.jobservice.model.dto.ReedJobSearchResponse;
 import com.jobseekercopilot.jobservice.model.dto.SalaryExpectation;
+import com.jobseekercopilot.jobservice.model.dto.SearchFreshness;
+import com.jobseekercopilot.jobservice.model.dto.SearchQualitySummary;
 import com.jobseekercopilot.jobservice.model.dto.WorkPreferences;
 import com.jobseekercopilot.jobservice.config.JobSearchResilienceProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.time.Clock;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -59,6 +68,8 @@ public class JobSearchService {
     private final DistanceCalculationService distanceCalculationService;
     private final OptionalJobMatchingEnricher jobMatchingEnricher;
     private final JobSearchResilienceProperties resilience;
+    private final JobDiscoveryClassifier discoveryClassifier;
+    private final Clock clock;
     private final int cacheTtlMinutes;
     private final Map<String, CacheEntry> searchCache = new ConcurrentHashMap<>();
     private final Map<String, CacheEntry> partialPageCache =
@@ -71,6 +82,22 @@ public class JobSearchService {
                             OptionalJobMatchingEnricher jobMatchingEnricher,
                             JobSearchResilienceProperties resilience,
                             @Value("${job.search.cache-ttl-minutes:${JOB_SEARCH_CACHE_TTL_MINUTES:10}}") int cacheTtlMinutes) {
+        this(providerSearchCoordinator, deduplicationService,
+                jobResultEnrichmentService, distanceCalculationService,
+                jobMatchingEnricher, resilience, cacheTtlMinutes,
+                new JobDiscoveryClassifier(), Clock.systemUTC());
+    }
+
+    @Autowired
+    public JobSearchService(ProviderSearchCoordinator providerSearchCoordinator,
+                            JobDeduplicationService deduplicationService,
+                            JobResultEnrichmentService jobResultEnrichmentService,
+                            DistanceCalculationService distanceCalculationService,
+                            OptionalJobMatchingEnricher jobMatchingEnricher,
+                            JobSearchResilienceProperties resilience,
+                            @Value("${job.search.cache-ttl-minutes:${JOB_SEARCH_CACHE_TTL_MINUTES:10}}") int cacheTtlMinutes,
+                            JobDiscoveryClassifier discoveryClassifier,
+                            Clock clock) {
         this.providerSearchCoordinator = providerSearchCoordinator;
         this.deduplicationService = deduplicationService;
         this.jobResultEnrichmentService = jobResultEnrichmentService;
@@ -78,6 +105,8 @@ public class JobSearchService {
         this.jobMatchingEnricher = jobMatchingEnricher;
         this.resilience = resilience;
         this.cacheTtlMinutes = cacheTtlMinutes;
+        this.discoveryClassifier = discoveryClassifier;
+        this.clock = clock;
     }
 
     public ReedJobSearchResponse searchJobs(String userId, JobSearchRequest request) {
@@ -118,7 +147,8 @@ public class JobSearchService {
                         List.of(),
                         List.of(timeoutStatus),
                         "UNAVAILABLE",
-                        "NOT_RUN"));
+                        "NOT_RUN",
+                        emptyQualitySummary()));
                 partial = true;
                 continue;
             }
@@ -139,23 +169,35 @@ public class JobSearchService {
                         List.of(),
                         providerSearchResult.providerResults(),
                         "UNAVAILABLE",
-                        "NOT_RUN"));
+                        "NOT_RUN",
+                        providerSearchResult.qualitySummary()));
                 continue;
             }
 
             applyDistance(request, providerSearchResult.jobs());
-            OptionalJobMatchingEnricher.MatchingOutcome matchingOutcome =
-                    hasCommuteModes(request)
-                            ? jobMatchingEnricher.enrich(
-                                    userId,
-                                    providerSearchResult.jobs(),
-                                    requestDeadlineNanos,
-                                    request.getHomeLocation(),
-                                    request.getWorkPreferences())
-                            : jobMatchingEnricher.enrich(
-                                    userId,
-                                    providerSearchResult.jobs(),
-                                    requestDeadlineNanos);
+            OptionalJobMatchingEnricher.MatchingOutcome matchingOutcome;
+            if (request.getCandidateProfile() != null) {
+                matchingOutcome = jobMatchingEnricher.enrich(
+                            userId,
+                            providerSearchResult.jobs(),
+                            requestDeadlineNanos,
+                            request.getHomeLocation(),
+                            request.getWorkPreferences(),
+                            targetRole,
+                            request.getCandidateProfile());
+            } else if (hasCommuteModes(request)) {
+                matchingOutcome = jobMatchingEnricher.enrich(
+                        userId,
+                        providerSearchResult.jobs(),
+                        requestDeadlineNanos,
+                        request.getHomeLocation(),
+                        request.getWorkPreferences());
+            } else {
+                matchingOutcome = jobMatchingEnricher.enrich(
+                        userId,
+                        providerSearchResult.jobs(),
+                        requestDeadlineNanos);
+            }
             List<Job> enrichedJobs = matchingOutcome.jobs();
             matchingStatus = mergeMatchingStatus(
                     matchingStatus,
@@ -175,7 +217,8 @@ public class JobSearchService {
                     boundedRoleJobs,
                     providerSearchResult.providerResults(),
                     roleSearchStatus,
-                    matchingOutcome.status()));
+                    matchingOutcome.status(),
+                    providerSearchResult.qualitySummary()));
         }
 
         if (!anyProviderSuccess) {
@@ -202,7 +245,8 @@ public class JobSearchService {
         List<Job> pageJobs = pageRows.stream().map(RoleJob::job).toList();
         List<ReedJobSearchResponse.TargetRoleJobResults> resultsByTargetRole =
                 rolePages.stream()
-                        .map(rolePage ->
+                        .map(rolePage -> {
+                            ReedJobSearchResponse.TargetRoleJobResults roleResponse =
                                 new ReedJobSearchResponse.TargetRoleJobResults(
                                         rolePage.targetRole(),
                                         rolePage.jobs(),
@@ -211,7 +255,10 @@ public class JobSearchService {
                                         pageSize,
                                         rolePage.providerResults(),
                                         rolePage.searchStatus(),
-                                        rolePage.matchingStatus()))
+                                        rolePage.matchingStatus());
+                            roleResponse.setQualitySummary(rolePage.qualitySummary());
+                            return roleResponse;
+                        })
                         .toList();
 
         String searchStatus = partial ? "PARTIAL" : "COMPLETE";
@@ -230,6 +277,8 @@ public class JobSearchService {
                 searchStatus,
                 matchingStatus);
         response.setSort(sort);
+        response.setFreshness(searchFreshness(providerResults));
+        response.setQualitySummary(combineQualitySummaries(roleResults));
         return response;
     }
 
@@ -249,12 +298,22 @@ public class JobSearchService {
         if (externalJobId == null || externalJobId.isBlank()) {
             throw new IllegalArgumentException("External job ID is required");
         }
-        return providerSearchCoordinator.details(
+        Job detail = providerSearchCoordinator.details(
                         userId,
                         provider,
                         externalJobId)
                 .orElseThrow(() -> new JobNotFoundException(
                         "Job details are not available"));
+        String title = firstNonBlank(detail.getTitle(), detail.getJobTitle());
+        JobDiscoveryClassifier.ClassificationResult assessed =
+                discoveryClassifier.classifyAndFilter(title, List.of(detail));
+        if (assessed.jobs().isEmpty()
+                && detail.getDiscoveryAssessment() != null
+                && detail.getDiscoveryAssessment().getExclusionReasons()
+                        .contains("KNOWN_EXPIRED_OR_CLOSED")) {
+            throw new JobNotFoundException("Job is no longer available");
+        }
+        return detail;
     }
 
     private RolePage page(
@@ -271,7 +330,8 @@ public class JobSearchService {
                 totalResults,
                 result.providerResults(),
                 result.searchStatus(),
-                result.matchingStatus());
+                result.matchingStatus(),
+                result.qualitySummary());
     }
 
     private ProviderSearchResult cachedProviderSearch(
@@ -283,20 +343,20 @@ public class JobSearchService {
         String ownerPageCacheKey = ownerPageCacheKey(userId, cacheKey);
         if (page(request) > 1) {
             CacheEntry partialPage = partialPageCache.get(ownerPageCacheKey);
-            if (partialPage != null && !partialPage.expired(cacheTtlMinutes)) {
+            if (partialPage != null && !partialPage.expired(cacheTtlMinutes, clock)) {
                 log.info("Job provider partial-page cache hit jobs={}",
                         partialPage.result().jobs().size());
-                return copyProviderSearchResult(partialPage.result());
+                return asCachedResult(partialPage);
             }
             if (partialPage != null) {
                 partialPageCache.remove(ownerPageCacheKey, partialPage);
             }
         }
         CacheEntry cached = searchCache.get(cacheKey);
-        if (cached != null && !cached.expired(cacheTtlMinutes)) {
+        if (cached != null && !cached.expired(cacheTtlMinutes, clock)) {
             log.info("Job provider search cache hit jobs={}",
                     cached.result().jobs().size());
-            return copyProviderSearchResult(cached.result());
+            return asCachedResult(cached);
         }
         log.info("Job provider search cache miss");
         ProviderSearchResult fresh = searchProviders(
@@ -308,14 +368,14 @@ public class JobSearchService {
             searchCache.put(
                     cacheKey,
                     new CacheEntry(
-                            Instant.now(),
+                            clock.instant(),
                             copyProviderSearchResult(fresh)));
             partialPageCache.remove(ownerPageCacheKey);
         } else if (fresh.anySuccess()) {
             partialPageCache.put(
                     ownerPageCacheKey,
                     new CacheEntry(
-                            Instant.now(),
+                            clock.instant(),
                             copyProviderSearchResult(fresh)));
         }
         return copyProviderSearchResult(fresh);
@@ -354,19 +414,36 @@ public class JobSearchService {
                 deduplicationDurationMs);
         long normalisationStartedAt = System.nanoTime();
         List<Job> enrichedProviderJobs = jobResultEnrichmentService.enrich(criteria, uniqueJobs);
+        OffsetDateTime retrievedAt = OffsetDateTime.now(clock);
+        enrichedProviderJobs.forEach(job -> {
+            // Provider ranking is not claimant-specific and must never be
+            // presented as personal relevance.
+            job.setMatchScore(null);
+            job.setMatchAssessment(null);
+            if (job.getSources() != null) {
+                job.getSources().stream()
+                        .filter(java.util.Objects::nonNull)
+                        .filter(source -> source.getRetrievedAtUtc() == null)
+                        .forEach(source -> source.setRetrievedAtUtc(retrievedAt));
+            }
+        });
+        JobDiscoveryClassifier.ClassificationResult classified =
+                discoveryClassifier.classifyAndFilter(
+                        criteria.getTargetRole(), enrichedProviderJobs);
         log.info("Job normalisation complete count={} durationMs={}",
-                enrichedProviderJobs.size(),
+                classified.jobs().size(),
                 (System.nanoTime() - normalisationStartedAt) / 1_000_000);
         log.info("Provider search complete rawCount={} uniqueCount={} durationMs={}",
                 rawJobs.size(),
-                enrichedProviderJobs.size(),
+                classified.jobs().size(),
                 (System.nanoTime() - startedAt) / 1_000_000);
         return new ProviderSearchResult(
-                enrichedProviderJobs,
+                classified.jobs(),
                 fanOut.providerResults(),
                 fanOut.anyAttempted(),
                 fanOut.anySuccess(),
-                fanOut.complete());
+                fanOut.complete(),
+                classified.summary());
     }
 
     private void applyDistance(JobSearchRequest request, List<Job> jobs) {
@@ -441,6 +518,7 @@ public class JobSearchService {
         page(request);
         pageSize(request);
         sort(request);
+        validateCandidateProfile(request.getCandidateProfile());
         WorkPreferences workPreferences = request.getWorkPreferences();
         if (workPreferences != null && workPreferences.getEmploymentType() != null) {
             for (String employmentType : workPreferences.getEmploymentType()) {
@@ -467,6 +545,56 @@ public class JobSearchService {
         if (!valid) {
             throw new IllegalArgumentException("Invalid employment type: " + employmentType);
         }
+    }
+
+    private void validateCandidateProfile(
+            com.jobseekercopilot.jobservice.model.dto.CandidateProfile profile) {
+        if (profile == null) return;
+        if (profile.getSkills().size() > 100
+                || profile.getRoles().size() > 50
+                || profile.getQualifications().size() > 50) {
+            throw new IllegalArgumentException(
+                    "candidateProfile exceeds supported evidence bounds");
+        }
+        profile.getSkills().forEach(skill -> {
+            if (skill == null || skill.isBlank() || skill.length() > 100) {
+                throw new IllegalArgumentException(
+                        "candidateProfile.skills contains an invalid value");
+            }
+        });
+        profile.getRoles().forEach(role -> {
+            if (role == null || role.getJobTitle() == null
+                    || role.getJobTitle().isBlank()
+                    || role.getJobTitle().length() > 200
+                    || !("CURRENT".equals(role.getStatus())
+                            || "PREVIOUS_ROLE".equals(role.getStatus()))
+                    || !validProfileDate(role.getStartDate())
+                    || (role.getEndDate() != null
+                            && !validProfileDate(role.getEndDate()))) {
+                throw new IllegalArgumentException(
+                        "candidateProfile.roles contains an invalid value");
+            }
+        });
+        profile.getQualifications().forEach(qualification -> {
+            if (qualification == null
+                    || qualification.getQualificationName() == null
+                    || qualification.getQualificationName().isBlank()
+                    || qualification.getQualificationName().length() > 200
+                    || !("IN_PROGRESS".equals(qualification.getStatus())
+                            || "COMPLETED".equals(qualification.getStatus()))
+                    || (qualification.getDateAchieved() != null
+                            && !validProfileDate(qualification.getDateAchieved()))
+                    || (qualification.getExpectedCompletion() != null
+                            && !validProfileDate(qualification.getExpectedCompletion()))) {
+                throw new IllegalArgumentException(
+                        "candidateProfile.qualifications contains an invalid value");
+            }
+        });
+    }
+
+    private boolean validProfileDate(String value) {
+        return value != null
+                && value.matches("\\d{4}-\\d{2}(?:-\\d{2})?");
     }
 
     private List<String> targetRoles(JobSearchRequest request) {
@@ -630,6 +758,113 @@ public class JobSearchService {
         return current;
     }
 
+    private ProviderSearchResult asCachedResult(CacheEntry entry) {
+        ProviderSearchResult cached = copyProviderSearchResult(entry.result());
+        OffsetDateTime servedAt = OffsetDateTime.now(clock);
+        long cacheAgeSeconds = Math.max(
+                0,
+                Duration.between(entry.createdAt(), clock.instant()).toSeconds());
+        cached.providerResults().forEach(status -> {
+            ProviderDataProvenance provenance = status.getDataProvenance();
+            if (provenance == null) {
+                provenance = new ProviderDataProvenance();
+                provenance.setProviderMode("UNKNOWN");
+                provenance.setDataOrigin("UNKNOWN");
+                provenance.setRetrievedAtUtc(
+                        OffsetDateTime.ofInstant(entry.createdAt(), ZoneOffset.UTC));
+                status.setDataProvenance(provenance);
+            }
+            provenance.setResultSource("JOB_SERVICE_CACHE");
+            provenance.setServedAtUtc(servedAt);
+            provenance.setCacheAgeSeconds(cacheAgeSeconds);
+        });
+        return cached;
+    }
+
+    private SearchFreshness searchFreshness(
+            List<ProviderResultStatus> statuses) {
+        List<ProviderDataProvenance> provenances = statuses == null
+                ? List.of()
+                : statuses.stream()
+                        .map(ProviderResultStatus::getDataProvenance)
+                        .filter(java.util.Objects::nonNull)
+                        .toList();
+        SearchFreshness freshness = new SearchFreshness();
+        freshness.setServedAtUtc(OffsetDateTime.now(clock));
+        Set<String> sources = provenances.stream()
+                .map(ProviderDataProvenance::getResultSource)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+        freshness.setResultSource(sources.isEmpty()
+                ? "UNKNOWN"
+                : sources.size() == 1 ? sources.iterator().next() : "MIXED");
+        freshness.setOldestRetrievedAtUtc(provenances.stream()
+                .map(ProviderDataProvenance::getRetrievedAtUtc)
+                .filter(java.util.Objects::nonNull)
+                .min(OffsetDateTime::compareTo)
+                .orElse(null));
+        freshness.setMaximumCacheAgeSeconds(provenances.stream()
+                .map(ProviderDataProvenance::getCacheAgeSeconds)
+                .filter(java.util.Objects::nonNull)
+                .max(Long::compareTo)
+                .orElse(null));
+        return freshness;
+    }
+
+    private SearchQualitySummary combineQualitySummaries(
+            List<RoleSearchResult> results) {
+        SearchQualitySummary combined = emptyQualitySummary();
+        results.stream()
+                .map(RoleSearchResult::qualitySummary)
+                .filter(java.util.Objects::nonNull)
+                .forEach(summary -> {
+                    combined.setAssessedJobCount(combined.getAssessedJobCount()
+                            + summary.getAssessedJobCount());
+                    combined.setEligibleJobCount(combined.getEligibleJobCount()
+                            + summary.getEligibleJobCount());
+                    combined.setExcludedExpiredCount(combined.getExcludedExpiredCount()
+                            + summary.getExcludedExpiredCount());
+                    combined.setExcludedPaidTrainingCount(combined.getExcludedPaidTrainingCount()
+                            + summary.getExcludedPaidTrainingCount());
+                    combined.setExcludedOccupationMismatchCount(combined.getExcludedOccupationMismatchCount()
+                            + summary.getExcludedOccupationMismatchCount());
+                });
+        return combined;
+    }
+
+    private SearchQualitySummary emptyQualitySummary() {
+        return new SearchQualitySummary();
+    }
+
+    private SearchQualitySummary copyQualitySummary(
+            SearchQualitySummary source) {
+        if (source == null) return emptyQualitySummary();
+        SearchQualitySummary target = new SearchQualitySummary();
+        target.setAssessedJobCount(source.getAssessedJobCount());
+        target.setEligibleJobCount(source.getEligibleJobCount());
+        target.setExcludedExpiredCount(source.getExcludedExpiredCount());
+        target.setExcludedPaidTrainingCount(source.getExcludedPaidTrainingCount());
+        target.setExcludedOccupationMismatchCount(source.getExcludedOccupationMismatchCount());
+        return target;
+    }
+
+    private ProviderDataProvenance copyDataProvenance(
+            ProviderDataProvenance source) {
+        if (source == null) return null;
+        ProviderDataProvenance target = new ProviderDataProvenance();
+        target.setProviderMode(source.getProviderMode());
+        target.setDataOrigin(source.getDataOrigin());
+        target.setResultSource(source.getResultSource());
+        target.setDatasetId(source.getDatasetId());
+        target.setDatasetVersion(source.getDatasetVersion());
+        target.setScenario(source.getScenario());
+        target.setExternalCallsEnabled(source.getExternalCallsEnabled());
+        target.setRetrievedAtUtc(source.getRetrievedAtUtc());
+        target.setServedAtUtc(source.getServedAtUtc());
+        target.setCacheAgeSeconds(source.getCacheAgeSeconds());
+        return target;
+    }
+
     private ProviderSearchResult copyProviderSearchResult(
             ProviderSearchResult source) {
         return new ProviderSearchResult(
@@ -639,15 +874,18 @@ public class JobSearchService {
                         .toList(),
                 source.anyAttempted(),
                 source.anySuccess(),
-                source.complete());
+                source.complete(),
+                copyQualitySummary(source.qualitySummary()));
     }
 
     private ProviderResultStatus copyProviderStatus(ProviderResultStatus source) {
-        return new ProviderResultStatus(
+        ProviderResultStatus target = new ProviderResultStatus(
                 source.getProvider(),
                 source.getStatus(),
                 source.getRawResultCount(),
                 source.getErrorMessage());
+        target.setDataProvenance(copyDataProvenance(source.getDataProvenance()));
+        return target;
     }
 
     private List<Job> copyProviderJobs(List<Job> jobs) {
@@ -713,6 +951,26 @@ public class JobSearchService {
                                 .map(this::copyFieldProvenance)
                                 .toList());
         target.setMatchScore(source.getMatchScore());
+        target.setMatchAssessment(source.getMatchAssessment());
+        target.setDiscoveryAssessment(
+                copyDiscoveryAssessment(source.getDiscoveryAssessment()));
+        return target;
+    }
+
+    private JobDiscoveryAssessment copyDiscoveryAssessment(
+            JobDiscoveryAssessment source) {
+        if (source == null) return null;
+        JobDiscoveryAssessment target = new JobDiscoveryAssessment();
+        target.setAlgorithmVersion(source.getAlgorithmVersion());
+        target.setAvailability(source.getAvailability());
+        target.setEngagementType(source.getEngagementType());
+        target.setOccupationFamily(source.getOccupationFamily());
+        target.setSeniority(source.getSeniority());
+        target.setTargetRoleAlignment(source.getTargetRoleAlignment());
+        target.setTargetRole(source.getTargetRole());
+        target.setExcluded(source.isExcluded());
+        target.setExclusionReasons(source.getExclusionReasons() == null
+                ? List.of() : List.copyOf(source.getExclusionReasons()));
         return target;
     }
 
@@ -853,7 +1111,8 @@ public class JobSearchService {
             List<Job> jobs,
             List<ProviderResultStatus> providerResults,
             String searchStatus,
-            String matchingStatus) {
+            String matchingStatus,
+            SearchQualitySummary qualitySummary) {
     }
 
     private record RolePage(
@@ -862,7 +1121,8 @@ public class JobSearchService {
             int totalResults,
             List<ProviderResultStatus> providerResults,
             String searchStatus,
-            String matchingStatus) {
+            String matchingStatus,
+            SearchQualitySummary qualitySummary) {
     }
 
     private record ProviderSearchResult(
@@ -870,12 +1130,13 @@ public class JobSearchService {
             List<ProviderResultStatus> providerResults,
             boolean anyAttempted,
             boolean anySuccess,
-            boolean complete) {
+            boolean complete,
+            SearchQualitySummary qualitySummary) {
     }
 
     private record CacheEntry(Instant createdAt, ProviderSearchResult result) {
-        boolean expired(int ttlMinutes) {
-            return createdAt.plusSeconds((long) ttlMinutes * 60).isBefore(Instant.now());
+        boolean expired(int ttlMinutes, Clock clock) {
+            return createdAt.plusSeconds((long) ttlMinutes * 60).isBefore(clock.instant());
         }
     }
 

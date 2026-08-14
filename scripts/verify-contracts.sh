@@ -17,6 +17,8 @@ for required_file in \
     apprenticeships-gateway.SOURCE \
     jsearch-gateway.yaml \
     jsearch-gateway.SOURCE \
+    job-matching-service.json \
+    job-matching-service.SOURCE \
     nhs-jobs-gateway.yaml \
     nhs-jobs-gateway.SOURCE \
     reed-gateway.yaml \
@@ -29,10 +31,11 @@ do
     }
 done
 
-test "$(wc -l < "$checksums")" -eq 5
+test "$(wc -l < "$checksums")" -eq 6
 grep -Eq '^[a-f0-9]{64}  adzuna-gateway\.yaml$' "$checksums"
 grep -Eq '^[a-f0-9]{64}  apprenticeships-gateway\.yaml$' "$checksums"
 grep -Eq '^[a-f0-9]{64}  jsearch-gateway\.yaml$' "$checksums"
+grep -Eq '^[a-f0-9]{64}  job-matching-service\.json$' "$checksums"
 grep -Eq '^[a-f0-9]{64}  nhs-jobs-gateway\.yaml$' "$checksums"
 grep -Eq '^[a-f0-9]{64}  reed-gateway\.yaml$' "$checksums"
 (cd "$contract_dir" && sha256sum --check --strict SHA256SUMS)
@@ -78,6 +81,16 @@ verify_source \
     83440f9a8d61c9ba1c53b8b2c4237f614707c6df \
     de1801bb897990ec2e106023429d11744987929291b49a38ec023154ff3e3506
 
+matching_source="$contract_dir/job-matching-service.SOURCE"
+matching_contract="$contract_dir/job-matching-service.json"
+matching_checksum=f2576c6e83f6aa500b9a3072f14553a6757cec80cb30473ce02d7337bf1db4d1
+test "$(wc -l < "$matching_source" | tr -d ' ')" = 4
+grep -Fx 'repository=jobseekercopilot/job-matching-service' "$matching_source" >/dev/null
+grep -Fx 'revision=7a6e99b1273afc1183479a160307ffc70cd74570' "$matching_source" >/dev/null
+grep -Fx 'path=contracts/openapi.json' "$matching_source" >/dev/null
+grep -Fx "sha256=$matching_checksum" "$matching_source" >/dev/null
+test "$(sha256sum "$matching_contract" | cut -d ' ' -f 1)" = "$matching_checksum"
+
 adzuna_contract="$contract_dir/adzuna-gateway.yaml"
 apprenticeships_contract="$contract_dir/apprenticeships-gateway.yaml"
 jsearch_contract="$contract_dir/jsearch-gateway.yaml"
@@ -94,6 +107,7 @@ grep -F '    AdzunaSearchRequest:' "$adzuna_contract" >/dev/null
 grep -F '    AdzunaSearchResponse:' "$adzuna_contract" >/dev/null
 
 grep -F '  /api/v1/apprenticeships/jobs/search:' "$apprenticeships_contract" >/dev/null
+grep -F '      operationId: search' "$apprenticeships_contract" >/dev/null
 grep -F '    ApprenticeshipVacancy:' "$apprenticeships_contract" >/dev/null
 grep -F '        addresses:' "$apprenticeships_contract" >/dev/null
 
@@ -103,6 +117,7 @@ grep -F '    JSearchSearchRequest:' "$jsearch_contract" >/dev/null
 grep -F '    JSearchSearchResponse:' "$jsearch_contract" >/dev/null
 
 grep -F '  /api/v1/nhs-jobs/jobs/search:' "$nhs_contract" >/dev/null
+grep -F '      operationId: search' "$nhs_contract" >/dev/null
 grep -F '    NhsJob:' "$nhs_contract" >/dev/null
 grep -F '        locations:' "$nhs_contract" >/dev/null
 
@@ -115,5 +130,19 @@ if grep -F '        "422":' "$reed_contract" >/dev/null; then
     echo "contract policy: Reed healthy empty-result 422 response returned" >&2
     exit 1
 fi
+
+grep -F '"openapi":"3.0.1"' "$matching_contract" >/dev/null
+grep -F '"version":"1.1.0"' "$matching_contract" >/dev/null
+grep -F '"/api/v1/job-matches/enrich"' "$matching_contract" >/dev/null
+grep -F '"operationId":"enrichJobs"' "$matching_contract" >/dev/null
+for schema in EnrichJobsRequest EnrichJobsResponse CandidateProfile \
+        JobMatchJob MatchAssessment MatchScoreComponent MatchReason; do
+    grep -F "\"$schema\"" "$matching_contract" >/dev/null
+done
+for field in candidateProfile targetRole matchAssessment discoveryAssessment \
+        provenance algorithmVersion candidateProfileUsed components reasons \
+        hardGateReasons; do
+    grep -F "\"$field\"" "$matching_contract" >/dev/null
+done
 
 echo "contract input policy: passed"

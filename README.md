@@ -83,11 +83,13 @@ PostgreSQL instance, restart it without losing data, and exercise the backup
 restore procedure. See
 [`docs/SAVED_JOB_PERSISTENCE.md`](docs/SAVED_JOB_PERSISTENCE.md).
 
-Reed, Adzuna, JSearch, NHS Jobs, and Apprenticeships clients are generated during the Maven build from
-checksum-protected producer contracts and immutable `.SOURCE` records under
-`src/main/openapi`. Generated sources and binaries remain under `target/` and
-are never committed. See [`CONTRACT.md`](CONTRACT.md) for the compatibility,
-update, and rollback policy.
+Reed, Adzuna, JSearch, NHS Jobs, and Apprenticeships clients are generated
+during the Maven build from checksum-protected producer contracts and immutable
+`.SOURCE` records under `src/main/openapi`. The handwritten Job Matching DTO
+boundary is guarded by an exact producer API 1.1 snapshot in the same manifest.
+Generated sources and binaries remain under `target/` and are never committed.
+See [`CONTRACT.md`](CONTRACT.md) for the compatibility, update, and rollback
+policy.
 
 Provider gateway URLs and request deadlines must be supplied as runtime
 configuration. Provider credentials do not belong in this service.

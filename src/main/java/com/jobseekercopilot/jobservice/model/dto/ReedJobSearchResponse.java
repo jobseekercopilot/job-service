@@ -37,6 +37,8 @@ public class ReedJobSearchResponse {
             "SATURATED"
     })
     private String matchingStatus;
+    private SearchFreshness freshness;
+    private SearchQualitySummary qualitySummary;
 
     public ReedJobSearchResponse() {
     }
@@ -148,6 +150,11 @@ public class ReedJobSearchResponse {
         this.matchingStatus = matchingStatus;
     }
 
+    public SearchFreshness getFreshness() { return freshness; }
+    public void setFreshness(SearchFreshness freshness) { this.freshness = freshness; }
+    public SearchQualitySummary getQualitySummary() { return qualitySummary; }
+    public void setQualitySummary(SearchQualitySummary qualitySummary) { this.qualitySummary = qualitySummary; }
+
     public static class TargetRoleJobResults {
         private String targetRole;
         private List<Job> jobs;
@@ -170,6 +177,7 @@ public class ReedJobSearchResponse {
                 "SATURATED"
         })
         private String matchingStatus;
+        private SearchQualitySummary qualitySummary;
 
         public TargetRoleJobResults() {
         }
@@ -269,5 +277,8 @@ public class ReedJobSearchResponse {
         public void setMatchingStatus(String matchingStatus) {
             this.matchingStatus = matchingStatus;
         }
+
+        public SearchQualitySummary getQualitySummary() { return qualitySummary; }
+        public void setQualitySummary(SearchQualitySummary qualitySummary) { this.qualitySummary = qualitySummary; }
     }
 }

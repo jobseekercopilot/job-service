@@ -17,6 +17,7 @@ public class ProviderResultStatus {
     private String status;
     private int rawResultCount;
     private String errorMessage;
+    private ProviderDataProvenance dataProvenance;
 
     public ProviderResultStatus() {
     }
@@ -58,5 +59,13 @@ public class ProviderResultStatus {
 
     public void setErrorMessage(String errorMessage) {
         this.errorMessage = errorMessage;
+    }
+
+    public ProviderDataProvenance getDataProvenance() {
+        return dataProvenance;
+    }
+
+    public void setDataProvenance(ProviderDataProvenance dataProvenance) {
+        this.dataProvenance = dataProvenance;
     }
 }

@@ -4,6 +4,7 @@ import com.jobseekercopilot.jobservice.config.JobSearchResilienceProperties;
 import com.jobseekercopilot.jobservice.model.dto.Job;
 import com.jobseekercopilot.jobservice.model.dto.HomeLocation;
 import com.jobseekercopilot.jobservice.model.dto.WorkPreferences;
+import com.jobseekercopilot.jobservice.model.dto.CandidateProfile;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,7 +59,27 @@ public class OptionalJobMatchingEnricher {
                 providerJobs,
                 requestDeadlineNanos,
                 () -> jobMatchingClient.enrichJobs(
-                        userId, providerJobs, homeLocation, commutePreferences));
+                    userId, providerJobs, homeLocation, commutePreferences));
+    }
+
+    MatchingOutcome enrich(
+            String userId,
+            List<Job> providerJobs,
+            long requestDeadlineNanos,
+            HomeLocation homeLocation,
+            WorkPreferences commutePreferences,
+            String targetRole,
+            CandidateProfile candidateProfile) {
+        return enrichInternal(
+                providerJobs,
+                requestDeadlineNanos,
+                () -> jobMatchingClient.enrichJobs(
+                        userId,
+                        providerJobs,
+                        homeLocation,
+                        commutePreferences,
+                        targetRole,
+                        candidateProfile));
     }
 
     private MatchingOutcome enrichInternal(
@@ -133,6 +154,8 @@ public class OptionalJobMatchingEnricher {
                     .orElse(null);
             if (matchingJob != null) {
                 providerJob.setMatchScore(matchingJob.getMatchScore());
+                providerJob.setMatchAssessment(
+                        matchingJob.getMatchAssessment());
                 providerJob.setApplicationStatus(
                         matchingJob.getApplicationStatus());
                 providerJob.setApplicationId(
