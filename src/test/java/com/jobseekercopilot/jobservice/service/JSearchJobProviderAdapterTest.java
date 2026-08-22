@@ -1,0 +1,233 @@
+package com.jobseekercopilot.jobservice.service;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.jobseekercopilot.generated.jsearchgateway.api.JSearchJobsApi;
+import com.jobseekercopilot.generated.jsearchgateway.model.JSearchApplyOption;
+import com.jobseekercopilot.generated.jsearchgateway.model.JSearchJob;
+import com.jobseekercopilot.generated.jsearchgateway.model.JSearchSearchRequest;
+import com.jobseekercopilot.generated.jsearchgateway.model.JSearchSearchResponse;
+import com.jobseekercopilot.jobservice.model.dto.Aspirations;
+import com.jobseekercopilot.jobservice.model.dto.CanonicalValueStatus;
+import com.jobseekercopilot.jobservice.model.dto.Job;
+import com.jobseekercopilot.jobservice.model.dto.JobDescriptionCompleteness;
+import com.jobseekercopilot.jobservice.model.dto.JobSearchRequest;
+import com.jobseekercopilot.jobservice.model.dto.WorkplaceTypeCode;
+import java.math.BigDecimal;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+
+class JSearchJobProviderAdapterTest {
+
+    @Test
+    void usesNonPostcodeProfileLocationWhenPrimaryLocationIsPostcode() {
+        JSearchJobsApi jSearchJobsApi = mock(JSearchJobsApi.class);
+        JSearchSearchResponse response = new JSearchSearchResponse();
+        response.setJobs(List.of());
+        ArgumentCaptor<JSearchSearchRequest> requestCaptor = ArgumentCaptor.forClass(JSearchSearchRequest.class);
+        when(jSearchJobsApi.search(requestCaptor.capture())).thenReturn(response);
+
+        JSearchJobProviderAdapter adapter = new JSearchJobProviderAdapter(
+                jSearchJobsApi,
+                new PublisherNormalisationService(),
+                true,
+                2);
+
+        adapter.search("user-1", criteria(List.of("UB3 4QZ", "Hillingdon, London")));
+
+        assertThat(requestCaptor.getValue().getLocation()).isEqualTo("Hillingdon, London");
+    }
+
+    @Test
+    void mapsTheGeneratedProviderResponseToCanonicalJobs() {
+        JSearchJobsApi jSearchJobsApi = mock(JSearchJobsApi.class);
+        JSearchApplyOption directOption = new JSearchApplyOption();
+        directOption.setPublisher("Employer");
+        directOption.setApplyUrl("https://example.test/apply");
+        directOption.setDirect(true);
+
+        JSearchJob providerJob = new JSearchJob();
+        providerJob.setExternalJobId("jsearch-42");
+        providerJob.setTitle("Software Developer");
+        providerJob.setCompanyName("Example Ltd");
+        providerJob.setPublisher("JSearch");
+        providerJob.setLocationDisplayName("London");
+        providerJob.setCity("London");
+        providerJob.setCountry("UK");
+        providerJob.setSalaryMinimum(50_000);
+        providerJob.setSalaryMaximum(60_000);
+        providerJob.setSalaryCurrency("GBP");
+        providerJob.setSalaryPeriod("YEAR");
+        providerJob.setLatitude(new BigDecimal("51.5074"));
+        providerJob.setLongitude(new BigDecimal("-0.1278"));
+        providerJob.setPostedAt("2026-07-24T09:00:00Z");
+        providerJob.setExpiresAt("2026-08-24T09:00:00Z");
+        providerJob.setRemote(true);
+        providerJob.setDescription("Complete JSearch job description");
+        providerJob.setPrimaryApplyUrl("https://example.test/listing");
+        providerJob.setApplyOptions(List.of(directOption));
+
+        JSearchSearchResponse response = new JSearchSearchResponse();
+        response.setJobs(List.of(providerJob));
+        when(jSearchJobsApi.search(org.mockito.ArgumentMatchers.any(JSearchSearchRequest.class)))
+                .thenReturn(response);
+
+        JSearchJobProviderAdapter adapter = new JSearchJobProviderAdapter(
+                jSearchJobsApi,
+                new PublisherNormalisationService(),
+                true,
+                2);
+
+        List<Job> jobs = adapter.search("user-1", criteria(List.of("London")));
+
+        assertThat(jobs).singleElement().satisfies(job -> {
+            assertThat(job.getExternalJobId()).isEqualTo("jsearch-42");
+            assertThat(job.getDescriptionCompleteness())
+                    .isEqualTo(JobDescriptionCompleteness.FULL);
+            assertThat(job.getCanonicalSchemaVersion()).isEqualTo("2.0");
+            assertThat(job.getCompanyName()).isEqualTo("Example Ltd");
+            assertThat(job.getCanonicalLocation().getLatitude()).isEqualByComparingTo("51.5074");
+            assertThat(job.getCanonicalLocation().getRawCity())
+                    .isEqualTo("London");
+            assertThat(job.getCanonicalLocation().getRawCountry())
+                    .isEqualTo("UK");
+            assertThat(job.getSalary().getMin()).isEqualTo(50_000);
+            assertThat(job.getSalary().getRawMinimum())
+                    .isEqualByComparingTo("50000");
+            assertThat(job.getSalary().getRawPeriod()).isEqualTo("YEAR");
+            assertThat(job.getWorkplaceType())
+                    .isEqualTo(WorkplaceTypeCode.REMOTE);
+            assertThat(job.getPostedAtUtc()).isEqualTo(
+                    java.time.OffsetDateTime.parse(
+                            "2026-07-24T09:00:00Z"));
+            assertThat(job.getExpiresAtUtc()).isEqualTo(
+                    java.time.OffsetDateTime.parse(
+                            "2026-08-24T09:00:00Z"));
+            assertThat(job.getSourceUrl()).isEqualTo("https://example.test/apply");
+            assertThat(job.getSources()).singleElement().satisfies(source -> {
+                assertThat(source.getPublisher()).isEqualTo("Employer Site");
+                assertThat(source.getRawPublisher()).isEqualTo("Employer");
+                assertThat(source.getDirectApply()).isTrue();
+                assertThat(source.getProviderExpiresAtUtc())
+                        .isEqualTo(job.getExpiresAtUtc());
+            });
+            assertThat(job.getFieldProvenance())
+                    .filteredOn(provenance ->
+                            "workplaceType".equals(
+                                    provenance.getFieldName()))
+                    .singleElement()
+                    .satisfies(provenance -> {
+                        assertThat(provenance.getStatus())
+                                .isEqualTo(
+                                        CanonicalValueStatus.NORMALISED);
+                        assertThat(provenance.getNormalisedValue())
+                                .isEqualTo("REMOTE");
+                    });
+            assertThat(job.getFieldProvenance())
+                    .extracting("fieldName")
+                    .contains("description");
+        });
+    }
+
+    @Test
+    void followsOneContinuationCursorWithinTheHardPageBudget() {
+        JSearchJobsApi jSearchJobsApi = mock(JSearchJobsApi.class);
+        JSearchSearchResponse first = response(
+                providerJob("first"),
+                " next-cursor ");
+        JSearchSearchResponse second = response(
+                providerJob("second"),
+                "ignored-third-page");
+        ArgumentCaptor<JSearchSearchRequest> requests =
+                ArgumentCaptor.forClass(JSearchSearchRequest.class);
+        when(jSearchJobsApi.search(requests.capture()))
+                .thenReturn(first, second);
+
+        JSearchJobProviderAdapter adapter = new JSearchJobProviderAdapter(
+                jSearchJobsApi,
+                new PublisherNormalisationService(),
+                true,
+                20);
+
+        List<Job> jobs = adapter.search(
+                "user-1",
+                criteria(List.of("London")));
+
+        assertThat(jobs)
+                .extracting(Job::getExternalJobId)
+                .containsExactly("first", "second");
+        assertThat(requests.getAllValues())
+                .extracting(JSearchSearchRequest::getCursor)
+                .containsExactly(null, "next-cursor");
+        verify(jSearchJobsApi, times(2)).search(any());
+    }
+
+    @Test
+    void stopsWhenAProviderRepeatsItsContinuationCursor() {
+        JSearchJobsApi jSearchJobsApi = mock(JSearchJobsApi.class);
+        when(jSearchJobsApi.search(any()))
+                .thenReturn(
+                        response(providerJob("first"), "same-cursor"),
+                        response(providerJob("second"), "same-cursor"));
+
+        JSearchJobProviderAdapter adapter = new JSearchJobProviderAdapter(
+                jSearchJobsApi,
+                new PublisherNormalisationService(),
+                true,
+                2);
+
+        List<Job> jobs = adapter.search(
+                "user-1",
+                criteria(List.of("London")));
+
+        assertThat(jobs)
+                .extracting(Job::getExternalJobId)
+                .containsExactly("first", "second");
+        verify(jSearchJobsApi, times(2)).search(any());
+    }
+
+    private JSearchSearchResponse response(
+            JSearchJob job,
+            String cursor) {
+        JSearchSearchResponse response = new JSearchSearchResponse();
+        response.setJobs(List.of(job));
+        response.setCursor(cursor);
+        return response;
+    }
+
+    private JSearchJob providerJob(String id) {
+        JSearchJob job = new JSearchJob();
+        job.setExternalJobId(id);
+        job.setTitle("Software Developer " + id);
+        job.setCompanyName("Example Ltd");
+        job.setLocationDisplayName("London");
+        job.setPrimaryApplyUrl("https://example.test/" + id);
+        return job;
+    }
+
+    private JobSearchCriteria criteria(List<String> locations) {
+        Aspirations aspirations = new Aspirations();
+        aspirations.setDesiredRoles(List.of("Software Developer"));
+        aspirations.setLocations(locations);
+
+        JobSearchRequest request = new JobSearchRequest();
+        request.setAspirations(aspirations);
+
+        return new JobSearchCriteria(
+                request,
+                "Software Developer",
+                locations.get(0),
+                25,
+                List.of("FULL_TIME"),
+                null,
+                null,
+                "GBP",
+                false);
+    }
+}

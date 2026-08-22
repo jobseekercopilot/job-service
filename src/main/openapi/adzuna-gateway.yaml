@@ -1,0 +1,190 @@
+openapi: 3.0.1
+info:
+  title: Adzuna Gateway API
+  version: 1.0.0
+servers:
+- description: Generated server url
+  url: http://localhost:8101
+paths:
+  /api/v1/adzuna/jobs/search:
+    post:
+      operationId: search
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdzunaSearchRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AdzunaSearchResponse"
+          description: OK
+      summary: Search Adzuna jobs for job-service
+      tags:
+      - Adzuna Jobs
+      x-content-type: application/json
+      x-accepts:
+      - '*/*'
+  /internal/provider-mode:
+    get:
+      operationId: providerMode
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                additionalProperties:
+                  type: object
+                type: object
+          description: OK
+      tags:
+      - provider-mode-controller
+      x-accepts:
+      - '*/*'
+components:
+  schemas:
+    AdzunaSearchRequest:
+      example:
+        targetRole: targetRole
+        location: location
+        distanceMiles: 0
+        page: 6
+        resultsPerPage: 1
+      properties:
+        targetRole:
+          type: string
+        location:
+          type: string
+        distanceMiles:
+          format: int32
+          type: integer
+        page:
+          format: int32
+          type: integer
+        resultsPerPage:
+          format: int32
+          type: integer
+      type: object
+    AdzunaJob:
+      example:
+        externalJobId: externalJobId
+        title: title
+        companyName: companyName
+        description: description
+        locationDisplayName: locationDisplayName
+        contractType: contractType
+        employmentType: employmentType
+        category: category
+        postedAt: postedAt
+        redirectUrl: redirectUrl
+        locationAreas:
+        - locationAreas
+        - locationAreas
+        latitude: 5.962133916683182
+        longitude: 5.637376656633329
+        salaryMinimum: 2
+        salaryMaximum: 7
+        salaryPredicted: true
+      properties:
+        externalJobId:
+          type: string
+        title:
+          type: string
+        companyName:
+          type: string
+        description:
+          type: string
+        locationDisplayName:
+          type: string
+        contractType:
+          type: string
+        employmentType:
+          type: string
+        remoteType:
+          type: string
+        category:
+          type: string
+        postedAt:
+          type: string
+        redirectUrl:
+          type: string
+        locationAreas:
+          items:
+            type: string
+          type: array
+        latitude:
+          type: number
+        longitude:
+          type: number
+        salaryMinimum:
+          format: int32
+          type: integer
+        salaryMaximum:
+          format: int32
+          type: integer
+        salaryPredicted:
+          type: boolean
+      type: object
+    AdzunaSearchResponse:
+      example:
+        provider: provider
+        totalAvailable: 0
+        page: 6
+        resultsPerPage: 1
+        jobs:
+        - externalJobId: externalJobId
+          title: title
+          companyName: companyName
+          description: description
+          locationDisplayName: locationDisplayName
+          contractType: contractType
+          employmentType: employmentType
+          category: category
+          postedAt: postedAt
+          redirectUrl: redirectUrl
+          locationAreas:
+          - locationAreas
+          - locationAreas
+          latitude: 5.962133916683182
+          longitude: 5.637376656633329
+          salaryMinimum: 2
+          salaryMaximum: 7
+          salaryPredicted: true
+        - externalJobId: externalJobId
+          title: title
+          companyName: companyName
+          description: description
+          locationDisplayName: locationDisplayName
+          contractType: contractType
+          employmentType: employmentType
+          category: category
+          postedAt: postedAt
+          redirectUrl: redirectUrl
+          locationAreas:
+          - locationAreas
+          - locationAreas
+          latitude: 5.962133916683182
+          longitude: 5.637376656633329
+          salaryMinimum: 2
+          salaryMaximum: 7
+          salaryPredicted: true
+      properties:
+        provider:
+          type: string
+        totalAvailable:
+          format: int32
+          type: integer
+        page:
+          format: int32
+          type: integer
+        resultsPerPage:
+          format: int32
+          type: integer
+        jobs:
+          items:
+            $ref: "#/components/schemas/AdzunaJob"
+          type: array
+      type: object

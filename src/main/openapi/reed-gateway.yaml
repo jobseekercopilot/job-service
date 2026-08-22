@@ -1,0 +1,386 @@
+openapi: 3.0.1
+info:
+  description: Gateway API for Reed job search integration. Searches jobs via Reed
+    external API.
+  title: Jobseeker Copilot - Reed Gateway API
+  version: 1.1.0
+servers:
+- description: Generated server url
+  url: http://localhost:8087
+tags:
+- description: Reed job search endpoints
+  name: Reed Jobs
+paths:
+  /api/jobs/{jobId}:
+    get:
+      description: Fetches one Reed job through the provider details API for the authenticated claimant.
+      operationId: jobDetails
+      parameters:
+      - explode: false
+        in: header
+        name: X-User-Id
+        required: false
+        schema:
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: jobId
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ExternalJob"
+          description: Job details returned
+        "401":
+          description: Missing X-User-Id header
+        "404":
+          description: Job not found
+      summary: Get complete Reed job details for generation
+      tags:
+      - Reed Jobs
+      x-accepts:
+      - '*/*'
+  /api/jobs/external-search:
+    post:
+      description: Internal gateway contract used by job-service.
+      operationId: externalSearch
+      parameters:
+      - explode: false
+        in: header
+        name: X-User-Id
+        required: false
+        schema:
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExternalSearchRequest"
+        required: true
+      responses:
+        "401":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ExternalSearchResponse"
+          description: Missing X-User-Id header
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ExternalSearchResponse"
+          description: Search completed successfully
+      summary: Search Reed for the job service
+      tags:
+      - Reed Jobs
+      x-content-type: application/json
+      x-accepts:
+      - '*/*'
+  /internal/provider-mode:
+    get:
+      operationId: providerMode
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                additionalProperties:
+                  type: object
+                type: object
+          description: OK
+      tags:
+      - provider-mode-controller
+      x-accepts:
+      - '*/*'
+  /api/reed/search:
+    get:
+      description: Searches for jobs via Reed external API.
+      operationId: searchJobs
+      parameters:
+      - description: Job title or keyword
+        example: Software Engineer
+        explode: true
+        in: query
+        name: query
+        required: true
+        schema:
+          type: string
+        style: form
+      - description: Location (city or postcode)
+        example: London
+        explode: true
+        in: query
+        name: location
+        required: false
+        schema:
+          type: string
+        style: form
+      - description: Maximum number of results
+        example: 10
+        explode: true
+        in: query
+        name: limit
+        required: false
+        schema:
+          default: 10
+          format: int32
+          type: integer
+        style: form
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ReedSearchResponse"
+          description: Search completed successfully
+        "502":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ReedSearchResponse"
+          description: Reed API error or rate limit exceeded
+      summary: Search jobs on Reed
+      tags:
+      - Reed Jobs
+      x-accepts:
+      - '*/*'
+components:
+  schemas:
+    ExternalSearchRequest:
+      example:
+        keywords:
+        - keywords
+        - keywords
+        - keywords
+        - keywords
+        - keywords
+        location: location
+        distance: 8
+        employmentType:
+        - employmentType
+        - employmentType
+        salaryMin: 0
+        salaryMax: 0
+        currency: currency
+        page: 1
+        pageSize: 56
+      properties:
+        keywords:
+          items:
+            type: string
+          maxItems: 10
+          minItems: 1
+          type: array
+        location:
+          type: string
+        distance:
+          format: int32
+          maximum: 100
+          minimum: 1
+          type: integer
+        employmentType:
+          items:
+            type: string
+          type: array
+        salaryMin:
+          format: int32
+          minimum: 0
+          type: integer
+        salaryMax:
+          format: int32
+          minimum: 0
+          type: integer
+        currency:
+          type: string
+        page:
+          format: int32
+          minimum: 1
+          type: integer
+        pageSize:
+          format: int32
+          maximum: 100
+          minimum: 1
+          type: integer
+      required:
+      - keywords
+      - location
+      type: object
+    ExternalJob:
+      example:
+        id: id
+        title: title
+        company: company
+        location: location
+        salary:
+          min: 0
+          max: 6
+          currency: currency
+        employmentType: employmentType
+        postedDate: postedDate
+        description: description
+        url: url
+        matchScore: 1.4658129805029452
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        company:
+          type: string
+        location:
+          type: string
+        salary:
+          $ref: "#/components/schemas/ExternalSalary"
+        employmentType:
+          type: string
+        postedDate:
+          type: string
+        description:
+          type: string
+        url:
+          type: string
+        matchScore:
+          format: double
+          type: number
+      type: object
+    ExternalSalary:
+      example:
+        min: 0
+        max: 6
+        currency: currency
+      properties:
+        min:
+          format: int32
+          type: integer
+        max:
+          format: int32
+          type: integer
+        currency:
+          type: string
+      type: object
+    ExternalSearchResponse:
+      example:
+        jobs:
+        - id: id
+          title: title
+          company: company
+          location: location
+          salary:
+            min: 0
+            max: 6
+            currency: currency
+          employmentType: employmentType
+          postedDate: postedDate
+          description: description
+          url: url
+          matchScore: 1.4658129805029452
+        - id: id
+          title: title
+          company: company
+          location: location
+          salary:
+            min: 0
+            max: 6
+            currency: currency
+          employmentType: employmentType
+          postedDate: postedDate
+          description: description
+          url: url
+          matchScore: 1.4658129805029452
+        totalResults: 5
+        page: 5
+        pageSize: 2
+      properties:
+        jobs:
+          items:
+            $ref: "#/components/schemas/ExternalJob"
+          type: array
+        totalResults:
+          format: int32
+          type: integer
+        page:
+          format: int32
+          type: integer
+        pageSize:
+          format: int32
+          type: integer
+      type: object
+    ReedJobDto:
+      example:
+        jobId: jobId
+        jobTitle: jobTitle
+        employerName: employerName
+        locationName: locationName
+        minimumSalary: minimumSalary
+        maximumSalary: maximumSalary
+        currency: currency
+        date: date
+        jobDescription: jobDescription
+        jobUrl: jobUrl
+        employmentType: employmentType
+      properties:
+        jobId:
+          type: string
+        jobTitle:
+          type: string
+        employerName:
+          type: string
+        locationName:
+          type: string
+        minimumSalary:
+          type: string
+        maximumSalary:
+          type: string
+        currency:
+          type: string
+        date:
+          type: string
+        jobDescription:
+          type: string
+        jobUrl:
+          type: string
+        employmentType:
+          type: string
+      type: object
+    ReedSearchResponse:
+      example:
+        totalResults: 0
+        results:
+        - jobId: jobId
+          jobTitle: jobTitle
+          employerName: employerName
+          locationName: locationName
+          minimumSalary: minimumSalary
+          maximumSalary: maximumSalary
+          currency: currency
+          date: date
+          jobDescription: jobDescription
+          jobUrl: jobUrl
+          employmentType: employmentType
+        - jobId: jobId
+          jobTitle: jobTitle
+          employerName: employerName
+          locationName: locationName
+          minimumSalary: minimumSalary
+          maximumSalary: maximumSalary
+          currency: currency
+          date: date
+          jobDescription: jobDescription
+          jobUrl: jobUrl
+          employmentType: employmentType
+      properties:
+        totalResults:
+          format: int32
+          type: integer
+        results:
+          items:
+            $ref: "#/components/schemas/ReedJobDto"
+          type: array
+      type: object

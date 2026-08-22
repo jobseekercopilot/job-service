@@ -1,0 +1,15 @@
+.git
+.github
+.idea
+.vscode
+.codex
+.agents
+target
+libs
+*.jar
+*.class
+*.log
+.env
+.env.*
+recordings
+demo-recordings

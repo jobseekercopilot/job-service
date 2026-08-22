@@ -1,0 +1,4 @@
+repository=jobseekercopilot/reed-gateway
+revision=83440f9a8d61c9ba1c53b8b2c4237f614707c6df
+path=api/openapi.yaml
+sha256=de1801bb897990ec2e106023429d11744987929291b49a38ec023154ff3e3506

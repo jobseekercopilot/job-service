@@ -1,13 +1,118 @@
+spring:
+  application:
+    name: job-service
+  datasource:
+    url: ${JOB_SERVICE_DATABASE_URL}
+    driver-class-name: org.postgresql.Driver
+    username: ${JOB_SERVICE_DATABASE_USERNAME}
+    password: ${JOB_SERVICE_DATABASE_PASSWORD}
+    hikari:
+      initialization-fail-timeout: 1
+      data-source-properties:
+        sslmode: ${JOB_SERVICE_DATABASE_SSL_MODE:verify-full}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration/common
+    clean-disabled: true
+    validate-on-migrate: true
+    validate-migration-naming: true
+  h2:
+    console:
+      enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        jdbc:
+          time_zone: UTC
+
 server:
   port: ${SERVER_PORT:8086}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
 
 services:
   reed-gateway:
     url: ${REED_GATEWAY_URL:http://reed-gateway:8087}
+  adzuna-gateway:
+    url: ${ADZUNA_GATEWAY_URL:http://adzuna-gateway:8101}
+  jsearch-gateway:
+    url: ${JSEARCH_GATEWAY_URL:http://jsearch-gateway:8102}
+  nhs-jobs-gateway:
+    url: ${NHS_JOBS_GATEWAY_URL:http://nhs-jobs-gateway:8104}
+  apprenticeships-gateway:
+    url: ${APPRENTICESHIPS_GATEWAY_URL:http://apprenticeships-gateway:8105}
+  job-matching-service:
+    base-url: ${JOB_MATCHING_SERVICE_URL:http://localhost:8097}
+
+providers:
+  reed:
+    enabled: ${REED_ENABLED:true}
+  adzuna:
+    enabled: ${ADZUNA_ENABLED:true}
+    results-per-page: ${ADZUNA_RESULTS_PER_PAGE:50}
+  jsearch:
+    enabled: ${JSEARCH_ENABLED:true}
+    # Cursor traversal is deliberately capped to prevent unbounded provider calls.
+    max-cursor-pages: ${JSEARCH_MAX_CURSOR_PAGES:2}
+  nhs-jobs:
+    enabled: ${NHS_JOBS_ENABLED:true}
+    results-per-page: ${NHS_JOBS_RESULTS_PER_PAGE:50}
+  apprenticeships:
+    enabled: ${APPRENTICESHIPS_ENABLED:true}
+    results-per-page: ${APPRENTICESHIPS_RESULTS_PER_PAGE:50}
 
 job-search:
   default-distance: 25
   default-page: 1
-  default-page-size: 20
+  default-page-size: ${JOB_SEARCH_PROVIDER_PAGE_SIZE:100}
   max-page-size: 100
   max-distance: 100
+
+job:
+  search:
+    cache-ttl-minutes: ${JOB_SEARCH_CACHE_TTL_MINUTES:10}
+    resilience:
+      request-timeout-ms: ${JOB_SEARCH_REQUEST_TIMEOUT_MS:5000}
+      provider-timeout-ms: ${JOB_SEARCH_PROVIDER_TIMEOUT_MS:2500}
+      matching-timeout-ms: ${JOB_SEARCH_MATCHING_TIMEOUT_MS:1000}
+      connect-timeout-ms: ${JOB_SEARCH_CONNECT_TIMEOUT_MS:500}
+      executor-threads: ${JOB_SEARCH_EXECUTOR_THREADS:8}
+      executor-queue-capacity: ${JOB_SEARCH_EXECUTOR_QUEUE_CAPACITY:16}
+  deduplication:
+    enabled: true
+    posted-date-tolerance-days: 7
+    title-similarity-threshold: 0.90
+    description-similarity-threshold: 0.80
+
+job-service:
+  database:
+    production-safety-check: ${JOB_SERVICE_DATABASE_PRODUCTION_SAFETY_CHECK:true}
+    encryption-at-rest-enabled: ${JOB_SERVICE_DATABASE_ENCRYPTION_AT_REST_ENABLED:false}
+    encryption-key-reference: ${JOB_SERVICE_DATABASE_ENCRYPTION_KEY_REFERENCE:}
+    backup-encryption-enabled: ${JOB_SERVICE_DATABASE_BACKUP_ENCRYPTION_ENABLED:false}
+    backup-key-reference: ${JOB_SERVICE_DATABASE_BACKUP_KEY_REFERENCE:}
+  security:
+    jwk-set-uri: ${AUTH_JWKS_URI:http://authentication-service:8084/.well-known/jwks.json}
+    issuer: ${JOB_SERVICE_JWT_ISSUER:job-seeker-copilot-authentication}
+    audience: ${JOB_SERVICE_JWT_AUDIENCE:job-seeker-copilot-services}
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{correlationId}] [%X{serviceName}] [%thread] %logger{36} - %msg%n"
+  level:
+    com.jobseekercopilot: ${APP_LOG_LEVEL:INFO}
+    # Framework DEBUG/TRACE output can render request bodies, downstream URLs
+    # or authentication parser detail. Keep those namespaces non-sensitive.
+    org.springframework.web: INFO
+    org.springframework.security: INFO
+    org.hibernate.SQL: "OFF"
+    org.hibernate.orm.jdbc.bind: "OFF"

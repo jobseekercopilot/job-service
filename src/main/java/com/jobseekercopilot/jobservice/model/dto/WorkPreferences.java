@@ -7,6 +7,13 @@ public class WorkPreferences {
     private String remotePreference;
     private List<String> companySize;
     private List<String> culture;
+    private Double homeLatitude;
+    private Double homeLongitude;
+    private List<CommuteTravelMode> commuteTravelModes;
+    private Integer maximumDrivingMinutes;
+    private Integer maximumTransitMinutes;
+    private Integer maximumDistanceMiles;
+    private List<String> workplaceArrangements;
 
     public WorkPreferences() {
     }
@@ -42,4 +49,31 @@ public class WorkPreferences {
     public void setCulture(List<String> culture) {
         this.culture = culture;
     }
+
+    public Double getHomeLatitude() {
+        return homeLatitude;
+    }
+
+    public void setHomeLatitude(Double homeLatitude) {
+        this.homeLatitude = homeLatitude;
+    }
+
+    public Double getHomeLongitude() {
+        return homeLongitude;
+    }
+
+    public void setHomeLongitude(Double homeLongitude) {
+        this.homeLongitude = homeLongitude;
+    }
+
+    public List<CommuteTravelMode> getCommuteTravelModes() { return commuteTravelModes; }
+    public void setCommuteTravelModes(List<CommuteTravelMode> commuteTravelModes) { this.commuteTravelModes = commuteTravelModes; }
+    public Integer getMaximumDrivingMinutes() { return maximumDrivingMinutes; }
+    public void setMaximumDrivingMinutes(Integer maximumDrivingMinutes) { this.maximumDrivingMinutes = maximumDrivingMinutes; }
+    public Integer getMaximumTransitMinutes() { return maximumTransitMinutes; }
+    public void setMaximumTransitMinutes(Integer maximumTransitMinutes) { this.maximumTransitMinutes = maximumTransitMinutes; }
+    public Integer getMaximumDistanceMiles() { return maximumDistanceMiles; }
+    public void setMaximumDistanceMiles(Integer maximumDistanceMiles) { this.maximumDistanceMiles = maximumDistanceMiles; }
+    public List<String> getWorkplaceArrangements() { return workplaceArrangements; }
+    public void setWorkplaceArrangements(List<String> workplaceArrangements) { this.workplaceArrangements = workplaceArrangements; }
 }

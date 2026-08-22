@@ -1,142 +1,120 @@
 # Job Service
 
-A Spring Boot microservice for job searching that integrates with the Reed Gateway API to provide job search functionality.
+## Role in Job Seeker Copilot
 
-## Overview
+| Role | Called by | Calls | Data | Local port |
+|---|---|---|---|---:|
+| Canonical job search, provider fan-out, normalisation/deduplication and saved-job owner | Job Finder Gateway, Document Generation Gateway | Reed, Adzuna, JSearch, NHS Jobs, Apprenticeships and Job Matching | PostgreSQL for saved jobs; search cache in memory | 8086 |
 
-The Job Service is a RESTful API that enables job seekers to search for job opportunities using the Reed Gateway API. It provides a clean interface for submitting job search criteria and retrieving matching job listings.
+See the central [job-search journey](https://docs.jobseekercopilot.com/journeys/job-search/), [data ownership](https://docs.jobseekercopilot.com/data/ownership/), and [dependency maps](https://docs.jobseekercopilot.com/architecture/dependency-maps/).
 
-## Features
+Job Service owns canonical multi-provider Job Search aggregation:
+provider fan-out, mapping, normalisation, deduplication, enrichment, warnings,
+and stable search responses. It must not own provider credentials or leak
+provider-specific DTOs to consumers.
 
-- Job search functionality via Reed Gateway API
-- RESTful API endpoints for job searching
-- Spring Boot 3.2.0 with Java 17
-- Lombok for reduced boilerplate code
-- Actuator endpoints for monitoring and health checks
-- Error handling with standardized error responses
+Status: **implemented and composed for the controlled private-beta search
+journey**. Provider clients now
+build from pinned source-owned contracts and the search API verifies a signed
+end-user access token. Provider fan-out now runs concurrently within explicit
+request, provider, connection and capacity budgets; healthy provider jobs
+survive other provider failures and optional Job Matching degradation. Cached
+provider snapshots are isolated from user-specific application state.
+Canonical Job schema 2.0 adds lossless raw evidence, explicit unknown
+taxonomies, provenance, decimal salary fields, timezone-safe instants, skills
+and experience without removing legacy fields.
+Job Search API 2.3 applies bounded server-side paging and deterministic sorting
+independently to every target role. Role-scoped totals, provider outcomes and
+matching state prevent one role's page or failure from appearing as another
+role's empty result set. The legacy top-level response remains as a flattened
+compatibility view without removing the 2.0 canonical Job fields.
+Owner-scoped saved jobs now use PostgreSQL/Flyway and retain immutable,
+digest-addressed canonical snapshots through replay, update, unsave and
+reactivation. Other tracked beta work remains. See
+[`docs/BETA_READINESS_AUDIT.md`](docs/BETA_READINESS_AUDIT.md).
 
-## Technology Stack
+## Trusted identity boundary
 
-- **Java 17**
-- **Spring Boot 3.2.0**
-- **Maven** - Build and dependency management
-- **Lombok 1.18.32** - Code generation
-- **Spring Web** - REST API framework
-- **Spring Actuator** - Monitoring and metrics
+`POST /api/jobs/search` requires an RS256 Bearer access token. Job Service
+validates the token independently and uses only its nonblank `sub` claim as the
+search identity. `X-User-Id` is not an authentication mechanism and is not part
+of the API contract.
 
-## Project Structure
+Configure the verification boundary with:
 
-```
-job-service/
-├── src/main/java/com/jobseekercopilot/jobservice/
-│   ├── JobServiceApplication.java          # Main application class
-│   ├── client/
-│   │   └── ReedGatewayClient.java          # Reed Gateway API client
-│   ├── config/
-│   │   └── RestTemplateConfig.java         # REST template configuration
-│   ├── controller/
-│   │   └── JobSearchController.java        # REST API endpoints
-│   ├── model/dto/
-│   │   ├── Aspirations.java                # Aspirations DTO
-│   │   ├── ErrorResponse.java              # Error response DTO
-│   │   ├── Job.java                        # Job DTO
-│   │   ├── JobSalary.java                  # Job salary DTO
-│   │   ├── JobSearchRequest.java           # Job search request DTO
-│   │   ├── ReedJobSearchRequest.java       # Reed API request DTO
-│   │   ├── ReedJobSearchResponse.java      # Reed API response DTO
-│   │   ├── SalaryExpectation.java          # Salary expectation DTO
-│   │   └── WorkPreferences.java            # Work preferences DTO
-│   └── service/
-│       └── JobSearchService.java           # Business logic layer
-├── src/main/resources/
-│   └── application.yml                     # Application configuration
-├── pom.xml                                 # Maven configuration
-└── README.md                               # This file
-```
+- `AUTH_JWKS_URI`
+- `JOB_SERVICE_JWT_ISSUER`
+- `JOB_SERVICE_JWT_AUDIENCE`
 
-## Getting Started
+Job Finder must forward the original end-user Bearer token; it must not mint or
+forward an unsigned subject header. See
+[`docs/SECURITY_BOUNDARY.md`](docs/SECURITY_BOUNDARY.md) for the claim,
+rotation and local-test contract.
 
-### Prerequisites
+The same verified JWT subject owns every saved job. The saved-job API is:
 
-- Java 17 or higher
-- Maven 3.6+
-- Git
+- `POST /api/jobs/saved` to create, replay, update or reactivate a canonical
+  snapshot;
+- `GET /api/jobs/saved` to list the owner's active saved jobs;
+- `GET /api/jobs/saved/{savedJobId}` to retrieve the current immutable
+  snapshot; and
+- `DELETE /api/jobs/saved/{savedJobId}` to idempotently unsave it.
 
-### Installation
+Missing, unsaved and other-user identifiers have the same not-found response.
+The generated OpenAPI contract records the status codes and response fields.
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/mcgeeverbernard1992/job-service.git
-   cd job-service
-   ```
+The Infrastructure
+[Job Search architecture ADR](https://github.com/jobseekercopilot/infrastructure/blob/develop/docs/adr/0001-job-search-architecture-and-ownership.md)
+is the approved ownership map for canonical jobs, provider orchestration,
+normalisation, deduplication, matching enrichment, and persistence.
 
-2. Build the project:
-   ```bash
-   mvn clean install
-   ```
-
-3. Run the application:
-   ```bash
-   mvn spring-boot:run
-   ```
-
-The service will start on `http://localhost:8080`
-
-## API Endpoints
-
-### Search Jobs
-
-**Endpoint:** `POST /api/jobs/search`
-
-**Request Body:**
-```json
-{
-  "keywords": "software engineer",
-  "location": "London",
-  "minimumSalary": 50000,
-  "maximumSalary": 80000,
-  "jobType": "PERMANENT"
-}
-```
-
-**Response:**
-Returns a list of matching job opportunities from the Reed Gateway API.
-
-## Configuration
-
-The application can be configured via `src/main/resources/application.yml`. Key configurations include:
-
-- Server port
-- Reed Gateway API credentials
-- Actuator endpoints
-
-## Building for Production
-
-To create an executable JAR file:
+## Local verification
 
 ```bash
-mvn clean package
+./scripts/test-contract-policy.sh
+./scripts/verify-contracts.sh
+mvn -B clean verify
+docker build -t local/job-service .
 ```
 
-The JAR file will be created in the `target/` directory.
+Persistence integration tests use H2 only as an isolated migration and
+repository check. Release evidence must also start the service against a real
+PostgreSQL instance, restart it without losing data, and exercise the backup
+restore procedure. See
+[`docs/SAVED_JOB_PERSISTENCE.md`](docs/SAVED_JOB_PERSISTENCE.md).
 
-## Contributing
+Reed, Adzuna, JSearch, NHS Jobs, and Apprenticeships clients are generated
+during the Maven build from checksum-protected producer contracts and immutable
+`.SOURCE` records under `src/main/openapi`. The handwritten Job Matching DTO
+boundary is guarded by an exact producer API 1.1 snapshot in the same manifest.
+Generated sources and binaries remain under `target/` and are never committed.
+See [`CONTRACT.md`](CONTRACT.md) for the compatibility, update, and rollback
+policy.
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+Provider gateway URLs and request deadlines must be supplied as runtime
+configuration. Provider credentials do not belong in this service.
+See [`docs/PROVIDER_RESILIENCE.md`](docs/PROVIDER_RESILIENCE.md) for timeout
+defaults, partial-result semantics, failure categories and operator actions.
+See [`docs/CANONICAL_JOB_MODEL.md`](docs/CANONICAL_JOB_MODEL.md) for the field
+dictionary, provider matrix, safe-link rule and compatibility plan.
+See [`docs/JOB_SEARCH_PAGING.md`](docs/JOB_SEARCH_PAGING.md) for request
+bounds, stable sorting, provider fetch budgets and consumer rollout.
 
-## License
+Runtime database configuration is supplied using:
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+- `JOB_SERVICE_DATABASE_URL`
+- `JOB_SERVICE_DATABASE_USERNAME`
+- `JOB_SERVICE_DATABASE_PASSWORD`
+- `JOB_SERVICE_DATABASE_SSL_MODE=verify-full`
+- `JOB_SERVICE_DATABASE_ENCRYPTION_AT_REST_ENABLED=true`
+- `JOB_SERVICE_DATABASE_ENCRYPTION_KEY_REFERENCE`
+- `JOB_SERVICE_DATABASE_BACKUP_ENCRYPTION_ENABLED=true`
+- `JOB_SERVICE_DATABASE_BACKUP_KEY_REFERENCE`
 
-## Contact
+Startup fails closed when PostgreSQL, verified TLS, a dedicated non-root role,
+reviewed Flyway migration settings, encryption declarations, or backup
+declarations are absent. The production safety check may be disabled only in an
+isolated local/test environment.
 
-For questions or support, please open an issue on GitHub.
-
-## Acknowledgments
-
-- Built with Spring Boot
-- Job data provided by Reed Gateway API
+`develop` is the integration/default branch for beta hardening. See
+`CONTRIBUTING.md`, `SECURITY.md`, and `LICENSE`.

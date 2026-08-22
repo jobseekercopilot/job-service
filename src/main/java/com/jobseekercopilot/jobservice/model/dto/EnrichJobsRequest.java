@@ -1,0 +1,67 @@
+package com.jobseekercopilot.jobservice.model.dto;
+
+import java.util.List;
+
+public class EnrichJobsRequest {
+    private String userId;
+    private List<Job> jobs;
+    private HomeLocation homeLocation;
+    private WorkPreferences commutePreferences;
+    private String targetRole;
+    private CandidateProfile candidateProfile;
+
+    public EnrichJobsRequest() {
+    }
+
+    public EnrichJobsRequest(String userId, List<Job> jobs) {
+        this(userId, jobs, null, null);
+    }
+
+    public EnrichJobsRequest(
+            String userId,
+            List<Job> jobs,
+            HomeLocation homeLocation,
+            WorkPreferences commutePreferences) {
+        this(userId, jobs, homeLocation, commutePreferences, null, null);
+    }
+
+    public EnrichJobsRequest(
+            String userId,
+            List<Job> jobs,
+            HomeLocation homeLocation,
+            WorkPreferences commutePreferences,
+            String targetRole,
+            CandidateProfile candidateProfile) {
+        this.userId = userId;
+        this.jobs = jobs;
+        this.homeLocation = homeLocation;
+        this.commutePreferences = commutePreferences;
+        this.targetRole = targetRole;
+        this.candidateProfile = candidateProfile;
+    }
+
+    public String getUserId() {
+        return userId;
+    }
+
+    public void setUserId(String userId) {
+        this.userId = userId;
+    }
+
+    public List<Job> getJobs() {
+        return jobs;
+    }
+
+    public void setJobs(List<Job> jobs) {
+        this.jobs = jobs;
+    }
+
+    public HomeLocation getHomeLocation() { return homeLocation; }
+    public void setHomeLocation(HomeLocation homeLocation) { this.homeLocation = homeLocation; }
+    public WorkPreferences getCommutePreferences() { return commutePreferences; }
+    public void setCommutePreferences(WorkPreferences commutePreferences) { this.commutePreferences = commutePreferences; }
+    public String getTargetRole() { return targetRole; }
+    public void setTargetRole(String targetRole) { this.targetRole = targetRole; }
+    public CandidateProfile getCandidateProfile() { return candidateProfile; }
+    public void setCandidateProfile(CandidateProfile candidateProfile) { this.candidateProfile = candidateProfile; }
+}

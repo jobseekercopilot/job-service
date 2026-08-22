@@ -1,0 +1,4 @@
+repository=jobseekercopilot/jsearch-gateway
+revision=b7542b74265b9b6fd4cee752b4d9719935ccc3d9
+path=api/openapi.yaml
+sha256=abe1984b48939f3c9820b846098bab5f20ee3c9346fb208df172deb9805382ad
