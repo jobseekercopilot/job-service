@@ -8,8 +8,6 @@ spring:
     password: ${JOB_SERVICE_DATABASE_PASSWORD}
     hikari:
       initialization-fail-timeout: 1
-      data-source-properties:
-        sslmode: ${JOB_SERVICE_DATABASE_SSL_MODE:verify-full}
   flyway:
     enabled: true
     locations: classpath:db/migration/common
