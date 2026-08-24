@@ -25,7 +25,6 @@ import org.springframework.boot.test.context.SpringBootTest;
         "spring.datasource.driver-class-name=org.postgresql.Driver",
         "spring.datasource.username=${JOB_SERVICE_POSTGRES_TEST_USERNAME}",
         "spring.datasource.password=${JOB_SERVICE_POSTGRES_TEST_PASSWORD}",
-        "spring.datasource.hikari.data-source-properties.sslmode=disable",
         "job-service.security.jwk-set-uri=http://localhost:65534/jwks",
         "job-service.security.issuer=test-issuer",
         "job-service.security.audience=test-audience"
