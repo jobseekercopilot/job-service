@@ -93,6 +93,138 @@ class JobSearchServiceTest {
     }
 
     @Test
+    void returnsOnlyTheAuthenticatedOwnersSelectedNhsPreview() {
+        Job preview = job("5554443", "Senior Digital Developer", "NHS_JOBS");
+        preview.setDescription("Short NHS Jobs search-feed preview");
+        preview.setDescriptionCompleteness(JobDescriptionCompleteness.FULL);
+        preview.setSourceUrl(
+                "https://beta.jobs.nhs.uk/candidate/jobadvert/M0048-26-0423");
+        when(providerSearchCoordinator.search(
+                eq("user-1"), any(JobSearchCriteria.class), anySet(), anyLong()))
+                .thenReturn(fanOut(
+                        List.of(preview),
+                        List.of(status("NHS_JOBS", "SUCCESS", 1)),
+                        true,
+                        true,
+                        true));
+        when(providerSearchCoordinator.details(
+                "user-1", "NHS_JOBS", "5554443"))
+                .thenReturn(Optional.empty());
+        when(providerSearchCoordinator.details(
+                "user-2", "NHS_JOBS", "5554443"))
+                .thenReturn(Optional.empty());
+        passThroughMatching();
+
+        service.searchJobs("user-1", request("digital developer"));
+
+        Job selected = service.getJobDetails(
+                "user-1", "nhs_jobs", "5554443");
+        assertThat(selected.getExternalJobId()).isEqualTo("5554443");
+        assertThat(selected.getSourceUrl()).isEqualTo(
+                "https://beta.jobs.nhs.uk/candidate/jobadvert/M0048-26-0423");
+        assertThat(selected.getDescriptionCompleteness())
+                .isEqualTo(JobDescriptionCompleteness.PREVIEW);
+        assertThatThrownBy(() -> service.getJobDetails(
+                "user-2", "NHS_JOBS", "5554443"))
+                .isInstanceOf(JobSearchService.JobNotFoundException.class)
+                .hasMessage("Job details are not available");
+    }
+
+    @Test
+    void doesNotUseTheSelectedPreviewFallbackForAnotherProvider() {
+        Job preview = job("reed-42", "Software Developer", "REED");
+        preview.setDescriptionCompleteness(JobDescriptionCompleteness.PREVIEW);
+        when(providerSearchCoordinator.search(
+                eq("user-1"), any(JobSearchCriteria.class), anySet(), anyLong()))
+                .thenReturn(fanOut(
+                        List.of(preview),
+                        List.of(status("REED", "SUCCESS", 1)),
+                        true,
+                        true,
+                        true));
+        when(providerSearchCoordinator.details(
+                "user-1", "REED", "reed-42"))
+                .thenReturn(Optional.empty());
+        passThroughMatching();
+
+        service.searchJobs("user-1", request("software developer"));
+
+        assertThatThrownBy(() -> service.getJobDetails(
+                "user-1", "REED", "reed-42"))
+                .isInstanceOf(JobSearchService.JobNotFoundException.class)
+                .hasMessage("Job details are not available");
+    }
+
+    @Test
+    void expiresTheOwnerScopedNhsPreviewWithTheSearchCacheTtl() {
+        MutableClock clock = new MutableClock(
+                Instant.parse("2026-08-25T04:00:00Z"));
+        JobSearchService clockedService = new JobSearchService(
+                providerSearchCoordinator,
+                deduplicationService,
+                jobResultEnrichmentService,
+                distanceCalculationService,
+                matchingEnricher,
+                resilience,
+                1,
+                new JobDiscoveryClassifier(clock),
+                clock);
+        Job preview = job("5554443", "Senior Digital Developer", "NHS_JOBS");
+        preview.setDescriptionCompleteness(JobDescriptionCompleteness.PREVIEW);
+        when(providerSearchCoordinator.search(
+                eq("user-1"), any(JobSearchCriteria.class), anySet(), anyLong()))
+                .thenReturn(fanOut(
+                        List.of(preview),
+                        List.of(status("NHS_JOBS", "SUCCESS", 1)),
+                        true,
+                        true,
+                        true));
+        when(providerSearchCoordinator.details(
+                "user-1", "NHS_JOBS", "5554443"))
+                .thenReturn(Optional.empty());
+        passThroughMatching();
+
+        clockedService.searchJobs("user-1", request("digital developer"));
+        clock.advanceSeconds(61);
+
+        assertThatThrownBy(() -> clockedService.getJobDetails(
+                "user-1", "NHS_JOBS", "5554443"))
+                .isInstanceOf(JobSearchService.JobNotFoundException.class)
+                .hasMessage("Job details are not available");
+    }
+
+    @Test
+    void prefersACompleteNhsProviderDetailOverTheCachedPreview() {
+        Job preview = job("5554443", "Senior Digital Developer", "NHS_JOBS");
+        preview.setDescription("Short NHS Jobs search-feed preview");
+        preview.setDescriptionCompleteness(JobDescriptionCompleteness.PREVIEW);
+        Job complete = job("5554443", "Senior Digital Developer", "NHS_JOBS");
+        complete.setDescription("Complete supported provider detail");
+        complete.setDescriptionCompleteness(JobDescriptionCompleteness.FULL);
+        when(providerSearchCoordinator.search(
+                eq("user-1"), any(JobSearchCriteria.class), anySet(), anyLong()))
+                .thenReturn(fanOut(
+                        List.of(preview),
+                        List.of(status("NHS_JOBS", "SUCCESS", 1)),
+                        true,
+                        true,
+                        true));
+        when(providerSearchCoordinator.details(
+                "user-1", "NHS_JOBS", "5554443"))
+                .thenReturn(Optional.of(complete));
+        passThroughMatching();
+
+        service.searchJobs("user-1", request("digital developer"));
+
+        Job selected = service.getJobDetails(
+                "user-1", "NHS_JOBS", "5554443");
+        assertThat(selected.getDescription())
+                .isEqualTo("Complete supported provider detail");
+        assertThat(selected.getDescriptionCompleteness())
+                .isEqualTo(JobDescriptionCompleteness.FULL);
+    }
+
+    @Test
     void rejectsProviderDetailsWithAKnownExpiredDeadline() {
         Job detail = job("reed-42", "Software Developer", "REED");
         detail.setExpiresAtUtc(java.time.OffsetDateTime.parse(
