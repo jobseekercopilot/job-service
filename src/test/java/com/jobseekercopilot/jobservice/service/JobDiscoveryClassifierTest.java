@@ -80,6 +80,40 @@ class JobDiscoveryClassifierTest {
     }
 
     @Test
+    void removesReportedClinicalTitlesFromSoftwareResults() {
+        List<Job> unrelated = List.of(
+                job("Psychological Wellbeing Practitioner (PWP)", "Deliver psychological interventions."),
+                job("Speech and Language Therapy Assistant", "Support a clinical team."),
+                job("Locum Consultant Haematologist", "Provide haematology care."),
+                job("Speech and Language Therapist", "Provide patient therapy."),
+                job("Health Visitor", "Deliver community health services."));
+        Job relevant = job("Software Developer", "Build Java services.");
+
+        var result = classifier.classifyAndFilter(
+                "Software Developer", java.util.stream.Stream.concat(
+                                unrelated.stream(), java.util.stream.Stream.of(relevant))
+                        .toList());
+
+        assertThat(result.jobs()).containsExactly(relevant);
+        assertThat(result.summary().getExcludedOccupationMismatchCount())
+                .isEqualTo(unrelated.size());
+        assertThat(unrelated)
+                .allSatisfy(job -> {
+                    assertThat(job.getDiscoveryAssessment().getOccupationFamily())
+                            .isEqualTo("NON_TECHNICAL");
+                    assertThat(job.getDiscoveryAssessment().getTargetRoleAlignment())
+                            .isEqualTo("MISMATCHED");
+                });
+
+        var healthcareTarget = classifier.classifyAndFilter(
+                "Speech and Language Therapist",
+                List.of(job("Speech and Language Therapy Assistant", "Support a clinical team.")));
+        assertThat(healthcareTarget.jobs()).singleElement()
+                .satisfies(job -> assertThat(job.getDiscoveryAssessment().getTargetRoleAlignment())
+                        .isEqualTo("ALIGNED"));
+    }
+
+    @Test
     void conservativelySeparatesAdministrativeFinanceAndHealthcareWork() {
         Job software = job("Software Developer", "Build Java services");
         Job nurse = job("Community Staff Nurse", "Provide community nursing care");
@@ -146,7 +180,7 @@ class JobDiscoveryClassifierTest {
         assertThat(software.getDiscoveryAssessment().getTargetRoleAlignment())
                 .isEqualTo("MISMATCHED");
         assertThat(software.getDiscoveryAssessment().getAlgorithmVersion())
-                .isEqualTo("DISCOVERY_RULES_V2");
+                .isEqualTo("DISCOVERY_RULES_V3");
     }
 
     private Job job(String title, String description) {
