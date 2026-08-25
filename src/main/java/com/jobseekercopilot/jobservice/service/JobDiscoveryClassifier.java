@@ -23,7 +23,7 @@ import org.springframework.stereotype.Component;
 /** Conservative deterministic rules for vacancy hygiene. */
 @Component
 public class JobDiscoveryClassifier {
-    static final String ALGORITHM_VERSION = "DISCOVERY_RULES_V2";
+    static final String ALGORITHM_VERSION = "DISCOVERY_RULES_V3";
     private static final Pattern MINIMUM_EXPERIENCE = Pattern.compile(
             "(?i)(?:at least|minimum(?: of)?|min\\.?\\s*)?\\b(\\d{1,2})\\s*\\+?\\s*(?:years?|yrs?)\\b[^.\\n]{0,45}\\b(?:experience|commercial|professional|development|engineering)\\b");
     private static final Set<String> CLOSED_PHRASES = Set.of(
@@ -223,7 +223,10 @@ public class JobDiscoveryClassifier {
             return "ADMINISTRATION";
         }
         if (containsAny(text, Set.of(
-                "care assistant", "carer", "healthcare", "nurse", "nursing"))) {
+                "care assistant", "carer", "healthcare", "nurse", "nursing",
+                "haematologist", "hematologist", "health visitor",
+                "psychological wellbeing practitioner",
+                "speech and language therapist", "speech and language therapy"))) {
             return "HEALTHCARE";
         }
         if (containsAny(text, Set.of(
