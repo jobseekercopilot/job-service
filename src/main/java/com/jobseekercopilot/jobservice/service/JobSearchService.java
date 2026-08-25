@@ -5,7 +5,6 @@ import com.jobseekercopilot.jobservice.model.dto.ApprenticeshipDetails;
 import com.jobseekercopilot.jobservice.model.dto.CanonicalLocation;
 import com.jobseekercopilot.jobservice.model.dto.HomeLocation;
 import com.jobseekercopilot.jobservice.model.dto.Job;
-import com.jobseekercopilot.jobservice.model.dto.JobDescriptionCompleteness;
 import com.jobseekercopilot.jobservice.model.dto.JobDiscoveryAssessment;
 import com.jobseekercopilot.jobservice.model.dto.JobExperience;
 import com.jobseekercopilot.jobservice.model.dto.JobFieldProvenance;
@@ -63,6 +62,11 @@ public class JobSearchService {
             "OLDEST_POSTED",
             "COMPANY_AZ",
             "JOB_TITLE_AZ");
+    private static final Set<String> SELECTED_RESULT_FALLBACK_PROVIDERS = Set.of(
+            "ADZUNA",
+            "JSEARCH",
+            "APPRENTICESHIPS",
+            "NHS_JOBS");
 
     private final ProviderSearchCoordinator providerSearchCoordinator;
     private final JobDeduplicationService deduplicationService;
@@ -76,7 +80,7 @@ public class JobSearchService {
     private final Map<String, CacheEntry> searchCache = new ConcurrentHashMap<>();
     private final Map<String, CacheEntry> partialPageCache =
             new ConcurrentHashMap<>();
-    private final Map<SelectedJobKey, SelectedJobPreviewEntry> selectedNhsPreviews =
+    private final Map<SelectedJobKey, SelectedJobResultEntry> selectedSearchResults =
             new ConcurrentHashMap<>();
 
     public JobSearchService(ProviderSearchCoordinator providerSearchCoordinator,
@@ -283,7 +287,7 @@ public class JobSearchService {
         response.setSort(sort);
         response.setFreshness(searchFreshness(providerResults));
         response.setQualitySummary(combineQualitySummaries(roleResults));
-        rememberSelectedNhsPreviews(userId, pageJobs);
+        rememberSelectedSearchResults(userId, pageJobs);
         return response;
     }
 
@@ -308,7 +312,7 @@ public class JobSearchService {
                         userId,
                         canonicalProvider,
                         externalJobId)
-                .or(() -> selectedNhsPreview(
+                .or(() -> selectedSearchResult(
                         userId,
                         canonicalProvider,
                         externalJobId))
@@ -326,60 +330,52 @@ public class JobSearchService {
         return detail;
     }
 
-    private void rememberSelectedNhsPreviews(String userId, List<Job> selectedJobs) {
-        selectedNhsPreviews.forEach((key, entry) -> {
+    private void rememberSelectedSearchResults(
+            String userId,
+            List<Job> selectedJobs) {
+        selectedSearchResults.forEach((key, entry) -> {
             if (entry.expired(cacheTtlMinutes, clock)) {
-                selectedNhsPreviews.remove(key, entry);
+                selectedSearchResults.remove(key, entry);
             }
         });
         selectedJobs.stream()
-                .filter(job -> "NHS_JOBS".equals(canonicalProvider(job)))
+                .filter(job -> SELECTED_RESULT_FALLBACK_PROVIDERS.contains(
+                        canonicalProvider(job)))
                 .filter(job -> job.getExternalJobId() != null
                         && !job.getExternalJobId().isBlank())
                 .forEach(job -> {
-                    Job preview = copyProviderJob(job);
-                    preview.setDescriptionCompleteness(
-                            preview.getDescription() == null
-                                    || preview.getDescription().isBlank()
-                                    ? JobDescriptionCompleteness.UNKNOWN
-                                    : JobDescriptionCompleteness.PREVIEW);
-                    selectedNhsPreviews.put(
+                    String provider = canonicalProvider(job);
+                    selectedSearchResults.put(
                             new SelectedJobKey(
                                     userId,
-                                    "NHS_JOBS",
+                                    provider,
                                     job.getExternalJobId().trim()),
-                            new SelectedJobPreviewEntry(
+                            new SelectedJobResultEntry(
                                     clock.instant(),
-                                    preview));
+                                    copyProviderJob(job)));
                 });
     }
 
-    private Optional<Job> selectedNhsPreview(
+    private Optional<Job> selectedSearchResult(
             String userId,
             String provider,
             String externalJobId) {
-        if (!"NHS_JOBS".equals(provider)) {
+        if (!SELECTED_RESULT_FALLBACK_PROVIDERS.contains(provider)) {
             return Optional.empty();
         }
         SelectedJobKey key = new SelectedJobKey(
                 userId,
                 provider,
                 externalJobId.trim());
-        SelectedJobPreviewEntry entry = selectedNhsPreviews.get(key);
+        SelectedJobResultEntry entry = selectedSearchResults.get(key);
         if (entry == null) {
             return Optional.empty();
         }
         if (entry.expired(cacheTtlMinutes, clock)) {
-            selectedNhsPreviews.remove(key, entry);
+            selectedSearchResults.remove(key, entry);
             return Optional.empty();
         }
-        Job preview = copyProviderJob(entry.job());
-        preview.setDescriptionCompleteness(
-                preview.getDescription() == null
-                        || preview.getDescription().isBlank()
-                        ? JobDescriptionCompleteness.UNKNOWN
-                        : JobDescriptionCompleteness.PREVIEW);
-        return Optional.of(preview);
+        return Optional.of(copyProviderJob(entry.job()));
     }
 
     private String canonicalProvider(Job job) {
@@ -1217,7 +1213,7 @@ public class JobSearchService {
             String externalJobId) {
     }
 
-    private record SelectedJobPreviewEntry(Instant createdAt, Job job) {
+    private record SelectedJobResultEntry(Instant createdAt, Job job) {
         boolean expired(int ttlMinutes, Clock clock) {
             return createdAt.plusSeconds((long) ttlMinutes * 60).isBefore(clock.instant());
         }
