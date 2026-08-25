@@ -5,6 +5,7 @@ import com.jobseekercopilot.jobservice.model.dto.ApprenticeshipDetails;
 import com.jobseekercopilot.jobservice.model.dto.CanonicalLocation;
 import com.jobseekercopilot.jobservice.model.dto.HomeLocation;
 import com.jobseekercopilot.jobservice.model.dto.Job;
+import com.jobseekercopilot.jobservice.model.dto.JobDescriptionCompleteness;
 import com.jobseekercopilot.jobservice.model.dto.JobDiscoveryAssessment;
 import com.jobseekercopilot.jobservice.model.dto.JobExperience;
 import com.jobseekercopilot.jobservice.model.dto.JobFieldProvenance;
@@ -37,6 +38,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -73,6 +75,8 @@ public class JobSearchService {
     private final int cacheTtlMinutes;
     private final Map<String, CacheEntry> searchCache = new ConcurrentHashMap<>();
     private final Map<String, CacheEntry> partialPageCache =
+            new ConcurrentHashMap<>();
+    private final Map<SelectedJobKey, SelectedJobPreviewEntry> selectedNhsPreviews =
             new ConcurrentHashMap<>();
 
     public JobSearchService(ProviderSearchCoordinator providerSearchCoordinator,
@@ -279,6 +283,7 @@ public class JobSearchService {
         response.setSort(sort);
         response.setFreshness(searchFreshness(providerResults));
         response.setQualitySummary(combineQualitySummaries(roleResults));
+        rememberSelectedNhsPreviews(userId, pageJobs);
         return response;
     }
 
@@ -298,10 +303,15 @@ public class JobSearchService {
         if (externalJobId == null || externalJobId.isBlank()) {
             throw new IllegalArgumentException("External job ID is required");
         }
+        String canonicalProvider = provider.trim().toUpperCase(Locale.ROOT);
         Job detail = providerSearchCoordinator.details(
                         userId,
-                        provider,
+                        canonicalProvider,
                         externalJobId)
+                .or(() -> selectedNhsPreview(
+                        userId,
+                        canonicalProvider,
+                        externalJobId))
                 .orElseThrow(() -> new JobNotFoundException(
                         "Job details are not available"));
         String title = firstNonBlank(detail.getTitle(), detail.getJobTitle());
@@ -314,6 +324,67 @@ public class JobSearchService {
             throw new JobNotFoundException("Job is no longer available");
         }
         return detail;
+    }
+
+    private void rememberSelectedNhsPreviews(String userId, List<Job> selectedJobs) {
+        selectedNhsPreviews.forEach((key, entry) -> {
+            if (entry.expired(cacheTtlMinutes, clock)) {
+                selectedNhsPreviews.remove(key, entry);
+            }
+        });
+        selectedJobs.stream()
+                .filter(job -> "NHS_JOBS".equals(canonicalProvider(job)))
+                .filter(job -> job.getExternalJobId() != null
+                        && !job.getExternalJobId().isBlank())
+                .forEach(job -> {
+                    Job preview = copyProviderJob(job);
+                    preview.setDescriptionCompleteness(
+                            preview.getDescription() == null
+                                    || preview.getDescription().isBlank()
+                                    ? JobDescriptionCompleteness.UNKNOWN
+                                    : JobDescriptionCompleteness.PREVIEW);
+                    selectedNhsPreviews.put(
+                            new SelectedJobKey(
+                                    userId,
+                                    "NHS_JOBS",
+                                    job.getExternalJobId().trim()),
+                            new SelectedJobPreviewEntry(
+                                    clock.instant(),
+                                    preview));
+                });
+    }
+
+    private Optional<Job> selectedNhsPreview(
+            String userId,
+            String provider,
+            String externalJobId) {
+        if (!"NHS_JOBS".equals(provider)) {
+            return Optional.empty();
+        }
+        SelectedJobKey key = new SelectedJobKey(
+                userId,
+                provider,
+                externalJobId.trim());
+        SelectedJobPreviewEntry entry = selectedNhsPreviews.get(key);
+        if (entry == null) {
+            return Optional.empty();
+        }
+        if (entry.expired(cacheTtlMinutes, clock)) {
+            selectedNhsPreviews.remove(key, entry);
+            return Optional.empty();
+        }
+        Job preview = copyProviderJob(entry.job());
+        preview.setDescriptionCompleteness(
+                preview.getDescription() == null
+                        || preview.getDescription().isBlank()
+                        ? JobDescriptionCompleteness.UNKNOWN
+                        : JobDescriptionCompleteness.PREVIEW);
+        return Optional.of(preview);
+    }
+
+    private String canonicalProvider(Job job) {
+        String provider = firstNonBlank(job.getPrimarySource(), job.getProvider());
+        return provider == null ? "" : provider.trim().toUpperCase(Locale.ROOT);
     }
 
     private RolePage page(
@@ -1135,6 +1206,18 @@ public class JobSearchService {
     }
 
     private record CacheEntry(Instant createdAt, ProviderSearchResult result) {
+        boolean expired(int ttlMinutes, Clock clock) {
+            return createdAt.plusSeconds((long) ttlMinutes * 60).isBefore(clock.instant());
+        }
+    }
+
+    private record SelectedJobKey(
+            String userId,
+            String provider,
+            String externalJobId) {
+    }
+
+    private record SelectedJobPreviewEntry(Instant createdAt, Job job) {
         boolean expired(int ttlMinutes, Clock clock) {
             return createdAt.plusSeconds((long) ttlMinutes * 60).isBefore(clock.instant());
         }
