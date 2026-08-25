@@ -93,45 +93,44 @@ class JobSearchServiceTest {
     }
 
     @Test
-    void returnsOnlyTheAuthenticatedOwnersSelectedNhsPreview() {
-        Job preview = job("5554443", "Senior Digital Developer", "NHS_JOBS");
-        preview.setDescription("Short NHS Jobs search-feed preview");
-        preview.setDescriptionCompleteness(JobDescriptionCompleteness.FULL);
-        preview.setSourceUrl(
-                "https://beta.jobs.nhs.uk/candidate/jobadvert/M0048-26-0423");
+    void returnsOnlyTheAuthenticatedOwnersSelectedSearchResult() {
+        Job preview = job("adzuna-42", "Software Developer", "ADZUNA");
+        preview.setDescription("Adzuna search-feed preview");
+        preview.setDescriptionCompleteness(JobDescriptionCompleteness.PREVIEW);
+        preview.setSourceUrl("https://www.adzuna.co.uk/jobs/details/42");
         when(providerSearchCoordinator.search(
                 eq("user-1"), any(JobSearchCriteria.class), anySet(), anyLong()))
                 .thenReturn(fanOut(
                         List.of(preview),
-                        List.of(status("NHS_JOBS", "SUCCESS", 1)),
+                        List.of(status("ADZUNA", "SUCCESS", 1)),
                         true,
                         true,
                         true));
         when(providerSearchCoordinator.details(
-                "user-1", "NHS_JOBS", "5554443"))
+                "user-1", "ADZUNA", "adzuna-42"))
                 .thenReturn(Optional.empty());
         when(providerSearchCoordinator.details(
-                "user-2", "NHS_JOBS", "5554443"))
+                "user-2", "ADZUNA", "adzuna-42"))
                 .thenReturn(Optional.empty());
         passThroughMatching();
 
-        service.searchJobs("user-1", request("digital developer"));
+        service.searchJobs("user-1", request("software developer"));
 
         Job selected = service.getJobDetails(
-                "user-1", "nhs_jobs", "5554443");
-        assertThat(selected.getExternalJobId()).isEqualTo("5554443");
+                "user-1", "adzuna", "adzuna-42");
+        assertThat(selected.getExternalJobId()).isEqualTo("adzuna-42");
         assertThat(selected.getSourceUrl()).isEqualTo(
-                "https://beta.jobs.nhs.uk/candidate/jobadvert/M0048-26-0423");
+                "https://www.adzuna.co.uk/jobs/details/42");
         assertThat(selected.getDescriptionCompleteness())
                 .isEqualTo(JobDescriptionCompleteness.PREVIEW);
         assertThatThrownBy(() -> service.getJobDetails(
-                "user-2", "NHS_JOBS", "5554443"))
+                "user-2", "ADZUNA", "adzuna-42"))
                 .isInstanceOf(JobSearchService.JobNotFoundException.class)
                 .hasMessage("Job details are not available");
     }
 
     @Test
-    void doesNotUseTheSelectedPreviewFallbackForAnotherProvider() {
+    void doesNotUseTheSelectedSearchResultFallbackForReed() {
         Job preview = job("reed-42", "Software Developer", "REED");
         preview.setDescriptionCompleteness(JobDescriptionCompleteness.PREVIEW);
         when(providerSearchCoordinator.search(
@@ -156,7 +155,7 @@ class JobSearchServiceTest {
     }
 
     @Test
-    void expiresTheOwnerScopedNhsPreviewWithTheSearchCacheTtl() {
+    void expiresTheOwnerScopedSelectedSearchResultWithTheSearchCacheTtl() {
         MutableClock clock = new MutableClock(
                 Instant.parse("2026-08-25T04:00:00Z"));
         JobSearchService clockedService = new JobSearchService(
@@ -169,55 +168,103 @@ class JobSearchServiceTest {
                 1,
                 new JobDiscoveryClassifier(clock),
                 clock);
-        Job preview = job("5554443", "Senior Digital Developer", "NHS_JOBS");
-        preview.setDescriptionCompleteness(JobDescriptionCompleteness.PREVIEW);
+        Job preview = job("jsearch-42", "Software Developer", "JSEARCH");
+        preview.setDescriptionCompleteness(JobDescriptionCompleteness.FULL);
         when(providerSearchCoordinator.search(
                 eq("user-1"), any(JobSearchCriteria.class), anySet(), anyLong()))
                 .thenReturn(fanOut(
                         List.of(preview),
-                        List.of(status("NHS_JOBS", "SUCCESS", 1)),
+                        List.of(status("JSEARCH", "SUCCESS", 1)),
                         true,
                         true,
                         true));
         when(providerSearchCoordinator.details(
-                "user-1", "NHS_JOBS", "5554443"))
+                "user-1", "JSEARCH", "jsearch-42"))
                 .thenReturn(Optional.empty());
         passThroughMatching();
 
-        clockedService.searchJobs("user-1", request("digital developer"));
+        clockedService.searchJobs("user-1", request("software developer"));
         clock.advanceSeconds(61);
 
         assertThatThrownBy(() -> clockedService.getJobDetails(
-                "user-1", "NHS_JOBS", "5554443"))
+                "user-1", "JSEARCH", "jsearch-42"))
                 .isInstanceOf(JobSearchService.JobNotFoundException.class)
                 .hasMessage("Job details are not available");
     }
 
     @Test
-    void prefersACompleteNhsProviderDetailOverTheCachedPreview() {
-        Job preview = job("5554443", "Senior Digital Developer", "NHS_JOBS");
-        preview.setDescription("Short NHS Jobs search-feed preview");
+    void preservesMappedCompletenessForEverySelectedResultFallbackProvider() {
+        Job adzuna = job("adzuna-42", "Adzuna Software Developer", "ADZUNA");
+        adzuna.setDescriptionCompleteness(JobDescriptionCompleteness.PREVIEW);
+        Job jsearch = job("jsearch-42", "JSearch Software Developer", "JSEARCH");
+        jsearch.setDescriptionCompleteness(JobDescriptionCompleteness.FULL);
+        Job apprenticeship = job(
+                "apprenticeship-42",
+                "Software Developer Apprenticeship",
+                "APPRENTICESHIPS");
+        apprenticeship.setDescriptionCompleteness(JobDescriptionCompleteness.FULL);
+        Job nhs = job("nhs-42", "NHS Digital Developer", "NHS_JOBS");
+        nhs.setDescriptionCompleteness(JobDescriptionCompleteness.PREVIEW);
+        List<Job> providerJobs = List.of(adzuna, jsearch, apprenticeship, nhs);
+        when(providerSearchCoordinator.search(
+                eq("user-1"), any(JobSearchCriteria.class), anySet(), anyLong()))
+                .thenReturn(fanOut(
+                        providerJobs,
+                        List.of(
+                                status("ADZUNA", "SUCCESS", 1),
+                                status("JSEARCH", "SUCCESS", 1),
+                                status("APPRENTICESHIPS", "SUCCESS", 1),
+                                status("NHS_JOBS", "SUCCESS", 1)),
+                        true,
+                        true,
+                        true));
+        providerJobs.forEach(job -> when(providerSearchCoordinator.details(
+                "user-1", job.getProvider(), job.getExternalJobId()))
+                .thenReturn(Optional.empty()));
+        passThroughMatching();
+
+        service.searchJobs("user-1", request("software developer"));
+
+        assertThat(service.getJobDetails("user-1", "ADZUNA", "adzuna-42")
+                .getDescriptionCompleteness())
+                .isEqualTo(JobDescriptionCompleteness.PREVIEW);
+        assertThat(service.getJobDetails("user-1", "JSEARCH", "jsearch-42")
+                .getDescriptionCompleteness())
+                .isEqualTo(JobDescriptionCompleteness.FULL);
+        assertThat(service.getJobDetails(
+                "user-1", "APPRENTICESHIPS", "apprenticeship-42")
+                .getDescriptionCompleteness())
+                .isEqualTo(JobDescriptionCompleteness.FULL);
+        assertThat(service.getJobDetails("user-1", "NHS_JOBS", "nhs-42")
+                .getDescriptionCompleteness())
+                .isEqualTo(JobDescriptionCompleteness.PREVIEW);
+    }
+
+    @Test
+    void prefersLiveProviderDetailOverTheSelectedSearchResult() {
+        Job preview = job("adzuna-42", "Software Developer", "ADZUNA");
+        preview.setDescription("Adzuna search-feed preview");
         preview.setDescriptionCompleteness(JobDescriptionCompleteness.PREVIEW);
-        Job complete = job("5554443", "Senior Digital Developer", "NHS_JOBS");
+        Job complete = job("adzuna-42", "Software Developer", "ADZUNA");
         complete.setDescription("Complete supported provider detail");
         complete.setDescriptionCompleteness(JobDescriptionCompleteness.FULL);
         when(providerSearchCoordinator.search(
                 eq("user-1"), any(JobSearchCriteria.class), anySet(), anyLong()))
                 .thenReturn(fanOut(
                         List.of(preview),
-                        List.of(status("NHS_JOBS", "SUCCESS", 1)),
+                        List.of(status("ADZUNA", "SUCCESS", 1)),
                         true,
                         true,
                         true));
         when(providerSearchCoordinator.details(
-                "user-1", "NHS_JOBS", "5554443"))
+                "user-1", "ADZUNA", "adzuna-42"))
                 .thenReturn(Optional.of(complete));
         passThroughMatching();
 
-        service.searchJobs("user-1", request("digital developer"));
+        service.searchJobs("user-1", request("software developer"));
 
         Job selected = service.getJobDetails(
-                "user-1", "NHS_JOBS", "5554443");
+                "user-1", "ADZUNA", "adzuna-42");
         assertThat(selected.getDescription())
                 .isEqualTo("Complete supported provider detail");
         assertThat(selected.getDescriptionCompleteness())
